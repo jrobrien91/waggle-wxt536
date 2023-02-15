@@ -1,0 +1,15 @@
+name: "waggle_wxt530"
+description: "Captures & uploads meteorological conditions from a Viasala WXT530 data stream."
+version: "0.23.2.15"
+authors: "Sage CROCUS <obrienj@anl.gov>"
+collaborators: "Joe O'Brien, Bhupendra Raut, Dario Dematties Reyes, Joseph Swantek*, Neal Conrad, Nicola Ferrier, Pete Beckman, Raj Sankaran, Robert Jackson, Scott Collis, Sean Shahkarami, Seongha Park, Sergey Shemyakin, Wolfgang Gerlach, Yongho Kim"
+funding: ""
+license: ""
+keywords: "meteorological"
+homepage: ""
+source:
+  architectures:
+    - "linux/amd64"
+    - "linux/arm64"
+  url: ""
+  branch: "main"
