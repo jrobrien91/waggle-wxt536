@@ -1,0 +1,11 @@
+name: waggle_wxt 
+channels:
+  - conda-forge
+  - defaults
+  - pyviz
+dependencies:
+  - python=3.9
+  - pyserial
+  - pip
+  - pip:
+    - pywaggle
