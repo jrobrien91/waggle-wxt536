@@ -176,7 +176,7 @@ def main():
                         help="enable debug logs"
                         )
     parser.add_argument("--device", 
-                        default="/dev/cu.usbserial-0001", 
+                        default="/dev/ttyUSB0", 
                         help="serial device to use"
                         )
     parser.add_argument("--baudrate", 
