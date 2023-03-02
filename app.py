@@ -26,18 +26,6 @@ def parse_values(sample, **kwargs):
                  
     return ndict
 
-def set_mode(dev: serial.Serial, mode: str):
-    """
-    Send the `mode` setting and attempt to verify (echo of `mode`).
-    Exception on failure.
-    """
-    for i in range(5):
-        logging.debug(f"writing command[try: {i}] '{mode}'")
-        dev.write("{}\n".format(mode).encode())
-        if validate_response(dev, lambda x: x == mode.lower()):
-            return
-    raise Exception(f"Unable to validate command '{mode}'")
-
 def request_sample(dev: serial.Serial) -> str:
     """
     Poll the WXT530 and read the return data
@@ -76,7 +64,7 @@ def validate_response(dev: serial.Serial, test) -> str:
         return line
     return None
 
-def sample_and_publish_task(scope, dev, plugin, delay, publish_names):
+def sample_and_publish_task(scope, dev, plugin, publish_names, units, **kwargs):
     # Update the log
     logging.info("requesting sample for scope %s", scope)
     # Define the timestamp
@@ -96,8 +84,8 @@ def sample_and_publish_task(scope, dev, plugin, delay, publish_names):
         except KeyError:
             continue
         # Update the log
-        logging.info("publishing %s %s", name, value)
-        plugin.publish(name, value=value, scope=scope, timestamp=timestamp)
+        logging.info("publishing %s %s units %s", name, value, units[name])
+        plugin.publish(name, value=value, meta={"units" : units[name], "sensor" : "vaisala_wxt530"},  scope=scope, timestamp=timestamp)
 
 def start_publishing(args, plugin, dev, **kwargs):
     """
@@ -115,28 +103,10 @@ def start_publishing(args, plugin, dev, **kwargs):
     sched
     parse
     """
-    # initialize the raingauge
-    ##try:
-    ##    logging.info("set to polling mode")
-    ##    set_mode(dev, "p")
-    ##except:
-    ##    pass
-    ##try:
-    ##   logging.info("set to high precision")
-    ##    set_mode(dev, "h")
-    ##except:
-    ##    pass
-    ##try:
-    ##    logging.info("set to metric mode")
-    ##    set_mode(dev, "m")
-    ##except:
-    ##    pass
-
     sch = sched.scheduler(time.time, time.sleep)
 
     # setup and run publishing schedule
     if args.node_publish_interval > 0:
-        ##sample_and_publish_task("node", args.node_publish_interval)
         sch.enter(0, 
                   0, 
                   sample_and_publish_task, 
@@ -145,30 +115,63 @@ def start_publishing(args, plugin, dev, **kwargs):
                           "plugin" : plugin,
                           "delay" : args.node_publish_interval,
                           "publish_names" : kwargs['names'],
+                          "units" : kwargs['units']
                         }
                 )
 
-    ##if args.beehive_publish_interval > 0:
-    ##    sch.enter(0, 
-    ##              0, 
-    ##              sample_and_publish_task, 
-    ##              kwargs={"scope": "beehive",
-    ##                      "delay": args.beehive_publish_interval,
-    ##                    }
-    ##            )
+    if args.beehive_publish_interval > 0:
+        sch.enter(0, 
+                  0, 
+                  sample_and_publish_task, 
+                  kwargs={"scope": "beehive",
+                          "delay": args.beehive_publish_interval,
+                          "dev" : dev,
+                          "plugin" : plugin,
+                          "publish_names" : kwargs['names'],
+                          "units" : kwargs['units']
+                        }
+                )
 
     sch.run()
 
 def main():
-    publish_names = {"winddir": "Dm",
-                     "windspd": "Sm",
-                     "airtemp": "Ta",
-                     "relhumid": "Ua",
-                     "pressure": "Pa",
-                     "rainaccum": "Rc",
-                     "heattemp": "Th",
-                     "heatvolt": "Vh"
+    publish_names = {"winddir" : "Dm",
+                     "windspd" : "Sm",
+                     "airtemp" : "Ta",
+                     "relhumid" : "Ua",
+                     "pressure" : "Pa",
+                     "rainaccum" : "Rc",
+                     "raindur" : "Rd",
+                     "rainint" : "Ri",
+                     "rainpeak" : "Rp",
+                     "hailaccum" : "Hc",
+                     "haildur" : "Hd",
+                     "hailint" : "Hi",
+                     "hailpeak" : "Hp",
+                     "heattemp" : "Th",
+                     "heatvolt" : "Vh",
+                     "supplyvolt" : "Vs",
+                     "refvolt" : "Vr"
                     }
+
+    units = {"winddir" : "degrees",
+             "windspd" : "meters per second",
+             "airtemp" : "degree Celsius",
+             "relhumid" : "percent",
+             "pressure" : "hectoPascal",
+             "rainaccum" : "milimeters",
+             "raindur" : "seconds",
+             "rainint" : "millimeters per hour",
+             "rainpeak" : "millimeters per hour",
+             "hailaccum" : "hits per square centimeter",
+             "haildur" : "seconds",
+             "hailint" : "hits per square centimeter per hour",
+             "hailpeak" : "hits per square centimeter per hour",
+             "supplyvolt" : "volts",
+             "heattemp" : "degree Celsius",
+             "heatvolt" : "volts",
+             "refvolt" : "volts"
+             }
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", 
@@ -176,7 +179,7 @@ def main():
                         help="enable debug logs"
                         )
     parser.add_argument("--device", 
-                        default="/dev/cu.usbserial-0001", 
+                        default="/dev/ttyUSB0", 
                         help="serial device to use"
                         )
     parser.add_argument("--baudrate", 
@@ -191,7 +194,7 @@ def main():
                              "(negative values disable node publishing)"
                         )
     parser.add_argument("--beehive-publish-interval", 
-                        default=-1, 
+                        default=0.2, 
                         type=float, 
                         help="interval to publish data to beehive " +
                              "(negative values disable beehive publishing)"
@@ -204,8 +207,8 @@ def main():
                         )
     
     with Plugin() as plugin, serial.Serial(args.device, baudrate=args.baudrate, timeout=1.0) as dev:
-        print(dev)
-        start_publishing(args, plugin, dev, names=publish_names)
+        start_publishing(args, plugin, dev, names=publish_names, units=units)
+
 
 if __name__ == '__main__':
     main()

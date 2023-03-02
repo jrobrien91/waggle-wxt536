@@ -11,5 +11,26 @@ Provides observations on meteorological conditions, including wind speed and dir
 ## Determine Serial Port
 
 To determine which port the instrument is plugged into, PySerial offers a handy toolist to list all serial ports currently in use. 
+```bash
+python -m serial.tools.list_ports
+```
 
-1) python -m serial.tools.list_ports
+## Testing 
+
+Similar to the [Windsonic 2D Plugin](https://github.com/nikhil003/windsonic)
+
+a docker container will be setup via Makefile 
+
+### 1) Build the Container
+```bash
+make build
+```
+
+### 2) Deploy the Container in Background
+```bash
+make deploy
+```
+
+### 3) Test the plugin
+```bash
+make interactive
