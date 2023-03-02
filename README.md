@@ -11,8 +11,9 @@ Provides observations on meteorological conditions, including wind speed and dir
 ## Determine Serial Port
 
 To determine which port the instrument is plugged into, PySerial offers a handy toolist to list all serial ports currently in use. 
-
-1) python -m serial.tools.list_ports
+```bash
+python -m serial.tools.list_ports
+```
 
 ## Testing 
 
