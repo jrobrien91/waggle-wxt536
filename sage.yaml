@@ -6,10 +6,10 @@ collaborators: "Joe O'Brien, Bhupendra Raut, and Sujan Pal"
 funding: ""
 license: ""
 keywords: "meteorological"
-homepage: ""
+homepage: "https://github.com/jrobrien91/waggle_wxt530/blob/main/README.md"
 source:
   architectures:
     - "linux/amd64"
     - "linux/arm64"
-  url: ""
+  url: "https://github.com/jrobrien91/waggle_wxt530"
   branch: "main"
