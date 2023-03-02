@@ -5,4 +5,4 @@ RUN pip3 install --no-cache-dir --upgrade -r /app/requirements.txt
 COPY app.py /app/
 
 WORKDIR /app
-ENTRYPOINT ["--device", "/dev/ttyUSB0", "python3", "/app/app.py"]
+ENTRYPOINT ["python3", "/app/app.py"]

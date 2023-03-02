@@ -17,6 +17,8 @@ deploy:
 	docker run -d --rm --name ${IMAGE} \
 	       --device=/dev/ttyUSB0 \
 	       --entrypoint '/bin/sh' ${IMAGE} -c '/bin/sleep infinity'
+run:
+	docker run --device=/dev/ttyUSB0 ${IMAGE}
 
 interactive:
 	docker exec -it ${IMAGE} bash
