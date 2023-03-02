@@ -33,4 +33,4 @@ make deploy
 
 ### 3) Test the plugin
 ```bash
-make interactive
+make run
