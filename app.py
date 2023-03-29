@@ -134,7 +134,7 @@ def start_publishing(args, plugin, dev, **kwargs):
 
     sch.run()
 
-def main():
+def main(*args, **kwargs):
     publish_names = {"winddir" : "Dm",
                      "windspd" : "Sm",
                      "airtemp" : "Ta",
@@ -173,42 +173,51 @@ def main():
              "refvolt" : "volts"
              }
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", 
-                        action="store_true", 
+    
+    print('hey args')
+    print('device: ', args.device)
+    print('baud rate: ', args.baud_rate)
+    print('debug: ', args.debug)
+    print('all args: ', args)
+    
+    with Plugin() as plugin, serial.Serial(args[0], baudrate=args[1], timeout=1.0) as dev:
+        start_publishing(args, plugin, dev, names=publish_names, units=units)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+            description="Plugin for Pushing Viasala WXT 2D anemometer data through WSN")
+
+    parser.add_argument("--debug",
+                        action="store_true",
+                        dest='debug',
                         help="enable debug logs"
                         )
-    parser.add_argument("--device", 
-                        default="/dev/ttyUSB0", 
+    parser.add_argument("--device",
+                        type=str,
+                        dest='device',
+                        default="/dev/ttyUSB0",
                         help="serial device to use"
                         )
-    parser.add_argument("--baudrate", 
-                        default=19200, 
-                        type=int, 
+    parser.add_argument("--baudrate",
+                        type=int,
+                        dest='baud_rate',
+                        default=19200,
                         help="baudrate to use"
                         )
-    parser.add_argument("--node-publish-interval", 
-                        default=0.2, 
-                        type=float, 
+    parser.add_argument("--node-publish-interval",
+                        default=0.2,
+                        type=float,
                         help="interval to publish data to node " +
                              "(negative values disable node publishing)"
                         )
-    parser.add_argument("--beehive-publish-interval", 
-                        default=0.2, 
-                        type=float, 
+    parser.add_argument("--beehive-publish-interval",
+                        default=0.2,
+                        type=float,
                         help="interval to publish data to beehive " +
                              "(negative values disable beehive publishing)"
                         )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
-                        format="%(asctime)s %(message)s",
-                         datefmt="%Y/%m/%d %H:%M:%S",
-                        )
-    
-    with Plugin() as plugin, serial.Serial(args.device, baudrate=args.baudrate, timeout=1.0) as dev:
-        start_publishing(args, plugin, dev, names=publish_names, units=units)
 
-
-if __name__ == '__main__':
-    main()
+    main(args.device, args.baud_rate, debug=args.debug)
