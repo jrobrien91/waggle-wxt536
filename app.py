@@ -10,7 +10,7 @@ from waggle.plugin import Plugin, get_timestamp
 
 def parse_values(sample, **kwargs):
     # Note: Specific to WXT ASCII query commands
-    if '0R0' in sample:
+    if sample.startswith(b'0R0'):
         parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh']
         data = parse.search("Dm={3D}D," +
                             "Sm={.1F}M," +
@@ -20,72 +20,46 @@ def parse_values(sample, **kwargs):
                             "Rc={.2F}M," +
                             "Th={.1F}C," +
                             "Vh={.1F}#" ,
-                            sample
+                            sample.decode('utf-8')
                            )
         ndict = dict(zip(parms, data))
+
+    elif sample.startswith(b'0R2'):
+        parms = ['Ta', 'Ua', 'Pa']
+        data = parse.search("Ta={.1F}C," +
+                            "Ua={.1F}P," +
+                            "Pa={.1F}H" ,
+                            sample.decode('utf-8')
+                            )
+        ndict = dict(zip(parms, data))
+
+    elif sample.startswith(b'0R3'):
+        parms = ['Rc', 'Rd', 'Ri', 'Hc', 'Hd', 'Hi']
+        data = parse.search("Rc={.2F}M," +
+                            "Rd={.2F}s," +
+                            "Ri={.2F}M," +
+                            "Hc={.2F}M," +
+                            "Hd={.2F}s," +
+                            "Hi={.2F}M" ,
+                            sample.decode('utf-8')
+                            )
+        ndict = dict(zip(parms, data))
+
+    elif sample.startswith(b'0R5'):
+        parms = ['Th', 'Vh', 'Vs', 'Vr']
+        data = parse.search("Th={.1F}C," +
+                            "Vh={.1F}N," +
+                            "Vs={.1F}V," +
+                            "Vr={.3F)}V" ,
+                            sample.decode('utf-8')
+                            )
+        ndict = dict(zip(parms, data))
+
+    else:
+        ndict = None
                  
     return ndict
 
-def request_sample(dev: serial.Serial) -> str:
-    """
-    Poll the WXT530 and read the return data
-    """
-    while True:
-        # initalize communciation with the instrument
-        logging.debug("send command to instrument to start poll")
-        dev.write(b'0R0\r\n')
-        line = validate_response(dev, lambda x: x.startswith("0R0"))
-        if line:
-            return line
-        
-def validate_response(dev: serial.Serial, test) -> str:
-    """
-    Validate the response is not empty and matches `test` criteria.
-    Returns response on success, `None` on failure.
-    """
-    # try for up-to 3 seconds to get a response
-    wait = 0.1
-    loops = 30
-    for i in range(loops):
-        data = dev.readline()
-        logging.debug(f"read data [{data}]")
-        if data == b"":
-            time.sleep(wait)
-            break
-        try:
-            line = data.decode().strip()
-        except UnicodeDecodeError:
-            time.sleep(wait)
-            continue
-        if not test(line):
-            time.sleep(wait)
-            continue
-        # all tests passed, return response
-        return line
-    return None
-
-def sample_and_publish_task(scope, dev, plugin, publish_names, units, **kwargs):
-    # Update the log
-    logging.info("requesting sample for scope %s", scope)
-    # Define the timestamp
-    timestamp = get_timestamp()
-    # Request Sample
-    sample = request_sample(dev)
-    print('Input: ', sample)
-    # Parse the readline
-    values = parse_values(sample)
-    # Update the log
-    logging.debug("read values %s", values)
-
-    # publish each value in sample
-    for name, key in publish_names.items():
-        try:
-            value = values[key]
-        except KeyError:
-            continue
-        # Update the log
-        logging.info("publishing %s %s units %s", name, value, units[name])
-        plugin.publish(name, value=value, meta={"units" : units[name], "sensor" : "vaisala_wxt530"},  scope=scope, timestamp=timestamp)
 
 def start_publishing(args, plugin, dev, **kwargs):
     """
@@ -103,36 +77,62 @@ def start_publishing(args, plugin, dev, **kwargs):
     sched
     parse
     """
-    sch = sched.scheduler(time.time, time.sleep)
+    
+    # Define the timestamp
+    timestamp = get_timestamp()
+    # Request Sample
+    logging.debug("send command to instrument to start poll")
+    # Note: WXT interface commands located within manual
+    dev.write(b'0R0\r\n')
+    line = dev.readline()
+    # Check for valid command
+    sample = parse_values(line) 
 
-    # setup and run publishing schedule
-    if args.node_publish_interval > 0:
-        sch.enter(0, 
-                  0, 
-                  sample_and_publish_task, 
-                  kwargs={"scope" : "node",
-                          "dev" : dev,
-                          "plugin" : plugin,
-                          "delay" : args.node_publish_interval,
-                          "publish_names" : kwargs['names'],
-                          "units" : kwargs['units']
-                        }
-                )
-
-    if args.beehive_publish_interval > 0:
-        sch.enter(0, 
-                  0, 
-                  sample_and_publish_task, 
-                  kwargs={"scope": "beehive",
-                          "delay": args.beehive_publish_interval,
-                          "dev" : dev,
-                          "plugin" : plugin,
-                          "publish_names" : kwargs['names'],
-                          "units" : kwargs['units']
-                        }
-                )
-
-    sch.run()
+    # If valid parsed values, send to publishing
+    if sample:
+        # setup and run publishing schedule
+        if kwargs['node_interval'] > 0:
+            # publish each value in sample
+            for name, key in kwargs['names'].items():
+                try:
+                    value = sample[key]
+                except KeyError:
+                    continue
+                # Update the log
+                if kwargs.get('debug', 'False'):
+                    print(timestamp, name, value, kwargs['units'][name])
+                logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
+                plugin.publish(name,
+                               value=value,
+                               meta={"units" : kwargs['units'][name],
+                                     "sensor" : "vaisala_wxt530",
+                                     "missing" : "-9999.9"
+                                    },
+                               scope="node",
+                               timestamp=timestamp
+                              )
+                                    
+        if kwargs['beehive_interval'] > 0:
+            print('beehive publish')
+            # publish each value in sample
+            for name, key in kwargs['names'].items():
+                try:
+                    value = sample[key]
+                except KeyError:
+                    continue
+                # Update the log
+                if kwargs.get('debug', 'False'):
+                    print(timestamp, name, value, kwargs['units'][name])
+                logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
+                plugin.publish(name,
+                               value=value,
+                               meta={"units" : kwargs['units'][name],
+                                     "sensor" : "vaisala_wxt530",
+                                     "missing" : "-9999.9"
+                                    },
+                               scope="beehive",
+                               timestamp=timestamp
+                              )
 
 def main(*args, **kwargs):
     publish_names = {"winddir" : "Dm",
@@ -173,15 +173,20 @@ def main(*args, **kwargs):
              "refvolt" : "volts"
              }
 
-    
-    print('hey args')
-    print('device: ', args.device)
-    print('baud rate: ', args.baud_rate)
-    print('debug: ', args.debug)
-    print('all args: ', args)
-    
     with Plugin() as plugin, serial.Serial(args[0], baudrate=args[1], timeout=1.0) as dev:
-        start_publishing(args, plugin, dev, names=publish_names, units=units)
+        while True:
+            try:
+                start_publishing(args, 
+                                 plugin,
+                                 dev,
+                                 node_interval=args[2], 
+                                 beehive_interval=args[3], 
+                                 names=publish_names, 
+                                 units=units)
+            except Exception as e:
+                print("keyboard interrupt")
+                print(e)
+                break
 
 
 if __name__ == '__main__':
@@ -206,13 +211,15 @@ if __name__ == '__main__':
                         help="baudrate to use"
                         )
     parser.add_argument("--node-publish-interval",
-                        default=0.2,
+                        default=1.0,
+                        dest='node_interval',
                         type=float,
                         help="interval to publish data to node " +
                              "(negative values disable node publishing)"
                         )
     parser.add_argument("--beehive-publish-interval",
-                        default=0.2,
+                        default=1.0,
+                        dest='beehive_interval',
                         type=float,
                         help="interval to publish data to beehive " +
                              "(negative values disable beehive publishing)"
@@ -220,4 +227,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    main(args.device, args.baud_rate, debug=args.debug)
+    main(args.device, args.baud_rate, args.node_interval, args.beehive_interval, debug=args.debug)
