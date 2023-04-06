@@ -77,7 +77,6 @@ def start_publishing(args, plugin, dev, **kwargs):
     sched
     parse
     """
-    
     # Define the timestamp
     timestamp = get_timestamp()
     # Request Sample
@@ -113,7 +112,6 @@ def start_publishing(args, plugin, dev, **kwargs):
                               )
                                     
         if kwargs['beehive_interval'] > 0:
-            print('beehive publish')
             # publish each value in sample
             for name, key in kwargs['names'].items():
                 try:
@@ -134,7 +132,7 @@ def start_publishing(args, plugin, dev, **kwargs):
                                timestamp=timestamp
                               )
 
-def main(*args, **kwargs):
+def main(args):
     publish_names = {"winddir" : "Dm",
                      "windspd" : "Sm",
                      "airtemp" : "Ta",
@@ -172,22 +170,21 @@ def main(*args, **kwargs):
              "heatvolt" : "volts",
              "refvolt" : "volts"
              }
-
-    with Plugin() as plugin, serial.Serial(args[0], baudrate=args[1], timeout=1.0) as dev:
+    
+    with Plugin() as plugin, serial.Serial(args.device, baudrate=args.baud_rate, timeout=1.0) as dev:
         while True:
             try:
                 start_publishing(args, 
                                  plugin,
                                  dev,
-                                 node_interval=args[2], 
-                                 beehive_interval=args[3], 
-                                 names=publish_names, 
+                                 node_interval=args.node_interval,
+                                 beehive_interval=args.beehive_interval,
+                                 names=publish_names,
                                  units=units)
             except Exception as e:
                 print("keyboard interrupt")
                 print(e)
                 break
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -201,7 +198,7 @@ if __name__ == '__main__':
     parser.add_argument("--device",
                         type=str,
                         dest='device',
-                        default="/dev/ttyUSB0",
+                        default="/dev/ttyUSB1",
                         help="serial device to use"
                         )
     parser.add_argument("--baudrate",
@@ -227,4 +224,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    main(args.device, args.baud_rate, args.node_interval, args.beehive_interval, debug=args.debug)
+    main(args)
