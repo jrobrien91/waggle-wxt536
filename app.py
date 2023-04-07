@@ -91,7 +91,7 @@ def start_publishing(args, plugin, dev, **kwargs):
     line = dev.readline()
     # Check for valid command
     sample = parse_values(line) 
-
+    
     # If valid parsed values, send to publishing
     if sample:
         # setup and run publishing schedule
@@ -105,7 +105,7 @@ def start_publishing(args, plugin, dev, **kwargs):
                 # Update the log
                 if kwargs.get('debug', 'False'):
                     print(timestamp, name, value, kwargs['units'][name], type(value))
-                logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
+                logging.info("node publishing %s %s units %s type %s", name, value, kwargs['units'][name], str(type(value)))
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
@@ -126,7 +126,7 @@ def start_publishing(args, plugin, dev, **kwargs):
                 # Update the log
                 if kwargs.get('debug', 'False'):
                     print(timestamp, name, value, kwargs['units'][name], type(value))
-                logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
+                logging.info("beehive publishing %s %s units %s type %s", name, value, kwargs['units'][name], str(type(value)))
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
@@ -158,7 +158,7 @@ def main(args):
                     }
 
     units = {"wxt.wind.direction" : "degrees",
-             "wxt.wind.spped" : "meters per second",
+             "wxt.wind.speed" : "meters per second",
              "wxt.env.temp" : "degree Celsius",
              "wxt.env.humidity" : "percent",
              "wxt.env.pressure" : "hectoPascal",
