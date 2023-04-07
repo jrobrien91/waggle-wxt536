@@ -1,4 +1,4 @@
-name: "waggle-wxt530"
+name: "waggle-wxt536"
 description: "Captures & uploads meteorological conditions from a Viasala WXT530 data stream."
 version: "0.23.2.15"
 authors: "Joe O'Brien <obrienj@anl.gov>"
@@ -6,10 +6,10 @@ collaborators: "Bhupendra Raut, Sujan Pal, and Yongho Kim"
 funding: "Community Research on Climate and Urban Science (CROCUS)"
 license: ""
 keywords: "meteorological"
-homepage: "https://github.com/jrobrien91/waggle_wxt530/blob/main/README.md"
+homepage: "https://github.com/jrobrien91/waggle-wxt536/blob/main/README.md"
 source:
   architectures:
     - "linux/amd64"
     - "linux/arm64"
-  url: "https://github.com/jrobrien91/waggle_wxt530"
+  url: "https://github.com/jrobrien91/waggle-wxt536"
   branch: "main"

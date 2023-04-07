@@ -1,11 +1,8 @@
 import serial
-import time
 import argparse
 import parse
 import logging
-import sched
-
-from datetime import datetime
+ 
 from waggle.plugin import Plugin, get_timestamp
 
 def parse_values(sample, **kwargs):
@@ -22,7 +19,9 @@ def parse_values(sample, **kwargs):
                             "Vh={.1F}#" ,
                             sample.decode('utf-8')
                            )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     elif sample.startswith(b'0R2'):
         parms = ['Ta', 'Ua', 'Pa']
@@ -31,7 +30,9 @@ def parse_values(sample, **kwargs):
                             "Pa={.1F}H" ,
                             sample.decode('utf-8')
                             )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     elif sample.startswith(b'0R3'):
         parms = ['Rc', 'Rd', 'Ri', 'Hc', 'Hd', 'Hi']
@@ -43,7 +44,9 @@ def parse_values(sample, **kwargs):
                             "Hi={.2F}M" ,
                             sample.decode('utf-8')
                             )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     elif sample.startswith(b'0R5'):
         parms = ['Th', 'Vh', 'Vs', 'Vr']
@@ -53,7 +56,9 @@ def parse_values(sample, **kwargs):
                             "Vr={.3F)}V" ,
                             sample.decode('utf-8')
                             )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     else:
         ndict = None
@@ -86,7 +91,7 @@ def start_publishing(args, plugin, dev, **kwargs):
     line = dev.readline()
     # Check for valid command
     sample = parse_values(line) 
-
+    
     # If valid parsed values, send to publishing
     if sample:
         # setup and run publishing schedule
@@ -99,12 +104,12 @@ def start_publishing(args, plugin, dev, **kwargs):
                     continue
                 # Update the log
                 if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name])
-                logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
+                    print(timestamp, name, value, kwargs['units'][name], type(value))
+                logging.info("node publishing %s %s units %s type %s", name, value, kwargs['units'][name], str(type(value)))
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
-                                     "sensor" : "vaisala_wxt530",
+                                     "sensor" : "vaisala-wxt536",
                                      "missing" : "-9999.9"
                                     },
                                scope="node",
@@ -120,12 +125,12 @@ def start_publishing(args, plugin, dev, **kwargs):
                     continue
                 # Update the log
                 if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name])
-                logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
+                    print(timestamp, name, value, kwargs['units'][name], type(value))
+                logging.info("beehive publishing %s %s units %s type %s", name, value, kwargs['units'][name], str(type(value)))
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
-                                     "sensor" : "vaisala_wxt530",
+                                     "sensor" : "vaisala-wxt536",
                                      "missing" : "-9999.9"
                                     },
                                scope="beehive",
@@ -133,42 +138,42 @@ def start_publishing(args, plugin, dev, **kwargs):
                               )
 
 def main(args):
-    publish_names = {"winddir" : "Dm",
-                     "windspd" : "Sm",
-                     "airtemp" : "Ta",
-                     "relhumid" : "Ua",
-                     "pressure" : "Pa",
-                     "rainaccum" : "Rc",
-                     "raindur" : "Rd",
-                     "rainint" : "Ri",
-                     "rainpeak" : "Rp",
-                     "hailaccum" : "Hc",
-                     "haildur" : "Hd",
-                     "hailint" : "Hi",
-                     "hailpeak" : "Hp",
-                     "heattemp" : "Th",
-                     "heatvolt" : "Vh",
-                     "supplyvolt" : "Vs",
-                     "refvolt" : "Vr"
+    publish_names = {"wxt.wind.direction" : "Dm",
+                     "wxt.wind.speed" : "Sm",
+                     "wxt.env.temp" : "Ta",
+                     "wxt.env.humidity" : "Ua",
+                     "wxt.env.pressure" : "Pa",
+                     "wxt.rain.accumulation" : "Rc",
+                     "wxt.rain.duration" : "Rd",
+                     "wxt.rain.intensity" : "Ri",
+                     "wxt.rain.peak" : "Rp",
+                     "wxt.hail.accumulation" : "Hc",
+                     "wxt.hail.duration" : "Hd",
+                     "wxt.hail.intensity" : "Hi",
+                     "wxt.hail.peak" : "Hp",
+                     "wxt.heater.temp" : "Th",
+                     "wxt.heater.volt" : "Vh",
+                     "wxt.voltage.supply" : "Vs",
+                     "wxt.voltage.reference" : "Vr"
                     }
 
-    units = {"winddir" : "degrees",
-             "windspd" : "meters per second",
-             "airtemp" : "degree Celsius",
-             "relhumid" : "percent",
-             "pressure" : "hectoPascal",
-             "rainaccum" : "milimeters",
-             "raindur" : "seconds",
-             "rainint" : "millimeters per hour",
-             "rainpeak" : "millimeters per hour",
-             "hailaccum" : "hits per square centimeter",
-             "haildur" : "seconds",
-             "hailint" : "hits per square centimeter per hour",
-             "hailpeak" : "hits per square centimeter per hour",
-             "supplyvolt" : "volts",
-             "heattemp" : "degree Celsius",
-             "heatvolt" : "volts",
-             "refvolt" : "volts"
+    units = {"wxt.wind.direction" : "degrees",
+             "wxt.wind.speed" : "meters per second",
+             "wxt.env.temp" : "degree Celsius",
+             "wxt.env.humidity" : "percent",
+             "wxt.env.pressure" : "hectoPascal",
+             "wxt.rain.accumulation" : "milimeters",
+             "wxt.rain.duration" : "seconds",
+             "wxt.rain.intensity" : "millimeters per hour",
+             "wxt.rain.peak" : "millimeters per hour",
+             "wxt.hail.accumulation" : "hits per square centimeter",
+             "wxt.hail.duratioun" : "seconds",
+             "wxt.hail.intensity" : "hits per square centimeter per hour",
+             "wxt.hail.peak" : "hits per square centimeter per hour",
+             "wxt.voltage.supply" : "volts",
+             "wxt.heater.temp" : "degree Celsius",
+             "wxt.heater.volt" : "volts",
+             "wxt.voltage.reference" : "volts"
              }
     
     with Plugin() as plugin, serial.Serial(args.device, baudrate=args.baud_rate, timeout=1.0) as dev:
