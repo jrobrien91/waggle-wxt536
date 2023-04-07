@@ -1,11 +1,8 @@
 import serial
-import time
 import argparse
 import parse
 import logging
-import sched
-
-from datetime import datetime
+ 
 from waggle.plugin import Plugin, get_timestamp
 
 def parse_values(sample, **kwargs):
@@ -22,7 +19,9 @@ def parse_values(sample, **kwargs):
                             "Vh={.1F}#" ,
                             sample.decode('utf-8')
                            )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     elif sample.startswith(b'0R2'):
         parms = ['Ta', 'Ua', 'Pa']
@@ -31,7 +30,9 @@ def parse_values(sample, **kwargs):
                             "Pa={.1F}H" ,
                             sample.decode('utf-8')
                             )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     elif sample.startswith(b'0R3'):
         parms = ['Rc', 'Rd', 'Ri', 'Hc', 'Hd', 'Hi']
@@ -43,7 +44,9 @@ def parse_values(sample, **kwargs):
                             "Hi={.2F}M" ,
                             sample.decode('utf-8')
                             )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     elif sample.startswith(b'0R5'):
         parms = ['Th', 'Vh', 'Vs', 'Vr']
@@ -53,7 +56,9 @@ def parse_values(sample, **kwargs):
                             "Vr={.3F)}V" ,
                             sample.decode('utf-8')
                             )
-        ndict = dict(zip(parms, data))
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
 
     else:
         ndict = None
@@ -99,7 +104,7 @@ def start_publishing(args, plugin, dev, **kwargs):
                     continue
                 # Update the log
                 if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name])
+                    print(timestamp, name, value, kwargs['units'][name], type(value))
                 logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
                 plugin.publish(name,
                                value=value,
@@ -120,7 +125,7 @@ def start_publishing(args, plugin, dev, **kwargs):
                     continue
                 # Update the log
                 if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name])
+                    print(timestamp, name, value, kwargs['units'][name], type(value))
                 logging.info("publishing %s %s units %s", name, value, kwargs['units'][name])
                 plugin.publish(name,
                                value=value,
