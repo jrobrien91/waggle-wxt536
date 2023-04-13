@@ -1,7 +1,7 @@
 # WXT536 Sampler
 Waggle Plugin for the [Vaisala WXT536](https://www.vaisala.com/en/products/weather-environmental-sensors/weather-transmitter-wxt530-series#:~:text=Vaisala%20Weather%20Transmitter%20WXT530%20series,in%20a%20compact%2C%20affordable%20package) weather transmitter.
 # Science
-The Viasala WXT536 is a multi-parameter weather sensor measures atmospheric temperatures, pressure, humdity, wind speed, wind direction, and precipitation. High quality atmospheric observations allow for understanding of the environmental conditions at the location of the instrument, and allow us to estimate transport of gas and particles through the atmosphere.
+The Vaisala WXT536 is a multi-parameter weather sensor measures atmospheric temperatures, pressure, humdity, wind speed, wind direction, and precipitation. High quality atmospheric observations allow for understanding of the environmental conditions at the location of the instrument, and allow us to estimate transport of gas and particles through the atmosphere.
 
 In combination with additional sensors attached to a CROCUS Level 1 Node, we are then able to evaluate the concentration of pollutants at the node, the transport of these pollutants into and out of the area of the node, and estimate removal of these pollutants from the atmosphere from preciptiation. Provides observations on meteorological conditions, including wind speed and direction, temperature, pressure, and precipitation estimate. 
 
