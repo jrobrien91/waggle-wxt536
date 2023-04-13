@@ -1,10 +1,10 @@
 ## WXT536 Waggle Plugin
 
-Waggle Sensor Plugin for the Viasala WXT536 series Weather Transmitter
+Waggle Sensor Plugin for the Vaisala WXT536 series Weather Transmitter
 
 Provides observations on meteorological conditions, including wind speed and direction, temperature, pressure, and precipitation estimate. 
 
-[Viasala WXT536 Information](https://www.vaisala.com/en/products/weather-environmental-sensors/weather-transmitter-wxt530-series#:~:text=Vaisala%20Weather%20Transmitter%20WXT530%20series,in%20a%20compact%2C%20affordable%20package)
+[Vaisala WXT536 Information](https://www.vaisala.com/en/products/weather-environmental-sensors/weather-transmitter-wxt530-series#:~:text=Vaisala%20Weather%20Transmitter%20WXT530%20series,in%20a%20compact%2C%20affordable%20package)
 
 [Waggle Sensors](https://github.com/waggle-sensor)
 
