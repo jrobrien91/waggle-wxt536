@@ -16,7 +16,7 @@ def parse_values(sample, **kwargs):
                             "Pa={.1F}H," +
                             "Rc={.2F}M," +
                             "Th={.1F}C," +
-                            "Vh={.1F}#" ,
+                            "Vh={.1F}N" ,
                             sample.decode('utf-8')
                            )
         # Can't figure out why I can't format parse class
