@@ -9,18 +9,21 @@ def parse_values(sample, **kwargs):
     # Note: Specific to WXT ASCII query commands
     if sample.startswith(b'0R0'):
         parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh']
-        try:
-            data = parse.search("Dm={3D}D," +
-                                "Sm={.1F}M," +
-                                "Ta={.1F}C," +
-                                "Ua={.1F}P," +
-                                "Pa={.1F}H," +
-                                "Rc={.2F}M," +
-                                "Th={.1F}C," +
-                                "Vh={.1F}N" ,
-                                sample.decode('utf-8')
-                               )
-        except:
+        data = parse.search("Dm={3D}D," +
+                            "Sm={.1F}M," +
+                            "Ta={.1F}C," +
+                            "Ua={.1F}P," +
+                            "Pa={.1F}H," +
+                            "Rc={.2F}M," +
+                            "Th={.1F}C," +
+                            "Vh={.1F}N" ,
+                            sample.decode('utf-8')
+                           )
+        # Note: ASCII sting changes voltage heater character if 
+        # voltage is supplied or not.
+        #   - '#' for voltage not supplied
+        #   - 'N' for supplied voltage
+        if data is None:
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
                                 "Ta={.1F}C," +
