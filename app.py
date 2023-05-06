@@ -19,6 +19,21 @@ def parse_values(sample, **kwargs):
                             "Vh={.1F}N" ,
                             sample.decode('utf-8')
                            )
+        # Note: ASCII sting changes voltage heater character if 
+        # voltage is supplied or not.
+        #   - '#' for voltage not supplied
+        #   - 'N' for supplied voltage
+        if data is None:
+            data = parse.search("Dm={3D}D," +
+                                "Sm={.1F}M," +
+                                "Ta={.1F}C," +
+                                "Ua={.1F}P," +
+                                "Pa={.1F}H," +
+                                "Rc={.2F}M," +
+                                "Th={.1F}C," +
+                                "Vh={.1F}#" ,
+                                sample.decode('utf-8')
+                               )
         # Can't figure out why I can't format parse class
         strip = [float(var) for var in data]
         ndict = dict(zip(parms, strip))
@@ -110,7 +125,7 @@ def start_publishing(args, plugin, dev, **kwargs):
                                value=value,
                                meta={"units" : kwargs['units'][name],
                                      "sensor" : "vaisala-wxt536",
-                                     "missing" : "-9999.9"
+                                     "missing" : "-9999.9",
                                     },
                                scope="node",
                                timestamp=timestamp
