@@ -9,16 +9,28 @@ def parse_values(sample, **kwargs):
     # Note: Specific to WXT ASCII query commands
     if sample.startswith(b'0R0'):
         parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh']
-        data = parse.search("Dm={3D}D," +
-                            "Sm={.1F}M," +
-                            "Ta={.1F}C," +
-                            "Ua={.1F}P," +
-                            "Pa={.1F}H," +
-                            "Rc={.2F}M," +
-                            "Th={.1F}C," +
-                            "Vh={.1F}N" ,
-                            sample.decode('utf-8')
-                           )
+        try:
+            data = parse.search("Dm={3D}D," +
+                                "Sm={.1F}M," +
+                                "Ta={.1F}C," +
+                                "Ua={.1F}P," +
+                                "Pa={.1F}H," +
+                                "Rc={.2F}M," +
+                                "Th={.1F}C," +
+                                "Vh={.1F}N" ,
+                                sample.decode('utf-8')
+                               )
+        except:
+            data = parse.search("Dm={3D}D," +
+                                "Sm={.1F}M," +
+                                "Ta={.1F}C," +
+                                "Ua={.1F}P," +
+                                "Pa={.1F}H," +
+                                "Rc={.2F}M," +
+                                "Th={.1F}C," +
+                                "Vh={.1F}#" ,
+                                sample.decode('utf-8')
+                               )
         # Can't figure out why I can't format parse class
         strip = [float(var) for var in data]
         ndict = dict(zip(parms, strip))
@@ -110,7 +122,7 @@ def start_publishing(args, plugin, dev, **kwargs):
                                value=value,
                                meta={"units" : kwargs['units'][name],
                                      "sensor" : "vaisala-wxt536",
-                                     "missing" : "-9999.9"
+                                     "missing" : "-9999.9",
                                     },
                                scope="node",
                                timestamp=timestamp
