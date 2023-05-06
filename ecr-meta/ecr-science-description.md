@@ -15,6 +15,18 @@ python -m serial.tools.list_ports
 ```
 Otherwise, check `/tty/devUSB#` to see active ports. Default serial device is `/tty/devUSB1`
 
+The default serial settings for the Vaisala WXT-536 are
+1. Baud Rate = 19200
+1. Data Bits = 8
+1. Parity = None
+1. Stop Bits = 1
+
+## Data Sample
+Below is a sample of teh ASCII formatted data string transmitted from the instrument. 
+The specific variables included within the string and their location are displayed at the end. 
+```bash
+b'0R0,Dm=166D,Sm=4.9M,Ta=20.4C,Ua=64.9P,Pa=989.5H,Rc=13.84M,Th=25.4C,Vh=0.0#\r\n'
+```
 
 ## Deployment 
 
@@ -50,5 +62,5 @@ df = sage_data_client.query(start="2023-04-10T12:00:00Z",
 
 ```
 
-Check [CROCUS Instrument Cookbooks](https://crocus-urban.github.io/instrument-cookbooks/notebooks/crocus_level1_node/viasala_wxt536.html) for details examples.
+Check [CROCUS Instrument Cookbooks](https://crocus-urban.github.io/instrument-cookbooks/notebooks/crocus_level1_node/vaisala_wxt536.html) for details examples.
 
