@@ -133,7 +133,8 @@ def start_publishing(args, plugin, dev, query, **kwargs):
                              name, 
                              value, 
                              kwargs['units'][name], 
-                             str(type(value))
+                             str(type(value)),
+                             query
                             )
                 plugin.publish(name,
                                value=value,
