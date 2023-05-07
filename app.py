@@ -63,7 +63,8 @@ def parse_values(sample, **kwargs):
         strip = [float(var) for var in data]
         ndict = dict(zip(parms, strip))
 
-    elif sample.startswith(b'0R5'):
+    # note: this should be 0R5, but funky values without heater plugged in
+    elif sample.startswith(b'0R9'):
         parms = ['Th', 'Vh', 'Vs', 'Vr']
         data = parse.search("Th={.1F}C," +
                             "Vh={.1F}N," +
@@ -71,6 +72,13 @@ def parse_values(sample, **kwargs):
                             "Vr={.3F)}V" ,
                             sample.decode('utf-8')
                             )
+        if data is None:
+            data = parse.search("Th={.1F}C," +
+                                "Vh={.1F}#," +
+                                "Vs={.1F}V," +
+                                "Vr={.3F)}V" ,
+                                sample.decode('utf-8')
+                               )
         # Can't figure out why I can't format parse class
         strip = [float(var) for var in data]
         ndict = dict(zip(parms, strip))
@@ -81,7 +89,7 @@ def parse_values(sample, **kwargs):
     return ndict
 
 
-def start_publishing(args, plugin, dev, **kwargs):
+def start_publishing(args, plugin, dev, query, **kwargs):
     """
     start_publishing initializes the Visala WXT530
     Begins sampling and publishing data
@@ -102,7 +110,8 @@ def start_publishing(args, plugin, dev, **kwargs):
     # Request Sample
     logging.debug("send command to instrument to start poll")
     # Note: WXT interface commands located within manual
-    dev.write(b'0R0\r\n')
+    # Note: query command sent to the instrument needs to be byte
+    dev.write(bytearray(query + '\r\n', 'utf-8'))
     line = dev.readline()
     # Check for valid command
     sample = parse_values(line) 
@@ -119,8 +128,14 @@ def start_publishing(args, plugin, dev, **kwargs):
                     continue
                 # Update the log
                 if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name], type(value))
-                logging.info("node publishing %s %s units %s type %s", name, value, kwargs['units'][name], str(type(value)))
+                    print(timestamp, name, value, kwargs['units'][name], type(value), query)
+                logging.info("node publishing %s %s units %s type %s", 
+                             name, 
+                             value, 
+                             kwargs['units'][name], 
+                             str(type(value)),
+                             query
+                            )
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
@@ -140,8 +155,14 @@ def start_publishing(args, plugin, dev, **kwargs):
                     continue
                 # Update the log
                 if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name], type(value))
-                logging.info("beehive publishing %s %s units %s type %s", name, value, kwargs['units'][name], str(type(value)))
+                    print(timestamp, name, value, kwargs['units'][name], type(value), query)
+                logging.info("beehive publishing %s %s units %s type %s", 
+                             name, 
+                             value, 
+                             kwargs['units'][name], 
+                             str(type(value)),
+                             query
+                            )
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
@@ -182,7 +203,7 @@ def main(args):
              "wxt.rain.intensity" : "millimeters per hour",
              "wxt.rain.peak" : "millimeters per hour",
              "wxt.hail.accumulation" : "hits per square centimeter",
-             "wxt.hail.duratioun" : "seconds",
+             "wxt.hail.duration" : "seconds",
              "wxt.hail.intensity" : "hits per square centimeter per hour",
              "wxt.hail.peak" : "hits per square centimeter per hour",
              "wxt.voltage.supply" : "volts",
@@ -197,10 +218,12 @@ def main(args):
                 start_publishing(args, 
                                  plugin,
                                  dev,
+                                 args.query,
                                  node_interval=args.node_interval,
                                  beehive_interval=args.beehive_interval,
                                  names=publish_names,
-                                 units=units)
+                                 units=units
+                                )
             except Exception as e:
                 print("keyboard interrupt")
                 print(e)
@@ -241,6 +264,11 @@ if __name__ == '__main__':
                         help="interval to publish data to beehive " +
                              "(negative values disable beehive publishing)"
                         )
+    parser.add_argument("--query",
+                        type=str,
+                        default="0R0",
+                        help="ASCII query command to send to the instrument"
+                       )
     args = parser.parse_args()
 
 
