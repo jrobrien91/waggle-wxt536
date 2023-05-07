@@ -71,6 +71,13 @@ def parse_values(sample, **kwargs):
                             "Vr={.3F)}V" ,
                             sample.decode('utf-8')
                             )
+        if data is None:
+            data = parse.search("Th={.1F}C," +
+                                "Vh={.1F}#," +
+                                "Vs={.1F}V," +
+                                "Vr={.3F)}V" ,
+                                sample.decode('utf-8')
+                               )
         # Can't figure out why I can't format parse class
         strip = [float(var) for var in data]
         ndict = dict(zip(parms, strip))
@@ -102,7 +109,9 @@ def start_publishing(args, plugin, dev, **kwargs):
     # Request Sample
     logging.debug("send command to instrument to start poll")
     # Note: WXT interface commands located within manual
-    dev.write(b'0R0\r\n')
+    print(query_command, bytearray(query_command + '\r\n', 'utf-8')))
+    # Note: query command sent to the instrument needs to be byte
+    dev.write(bytearray(query_command + '\r\n', 'utf-8'))
     line = dev.readline()
     # Check for valid command
     sample = parse_values(line) 
@@ -200,7 +209,9 @@ def main(args):
                                  node_interval=args.node_interval,
                                  beehive_interval=args.beehive_interval,
                                  names=publish_names,
-                                 units=units)
+                                 units=units,
+                                 query_command=query
+                                )
             except Exception as e:
                 print("keyboard interrupt")
                 print(e)
@@ -241,6 +252,11 @@ if __name__ == '__main__':
                         help="interval to publish data to beehive " +
                              "(negative values disable beehive publishing)"
                         )
+    parser.add_argument("--query",
+                        type=str,
+                        default="0R0",
+                        help="ASCII query command to send to the instrument"
+                       )
     args = parser.parse_args()
 
 
