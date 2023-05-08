@@ -9,21 +9,58 @@ def parse_values(sample, **kwargs):
     # Note: Specific to WXT ASCII query commands
     if sample.startswith(b'0R0'):
         parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh']
-        data = parse.search("Dm={3D}D," +
-                            "Sm={.1F}M," +
-                            "Ta={.1F}C," +
-                            "Ua={.1F}P," +
-                            "Pa={.1F}H," +
-                            "Rc={.2F}M," +
-                            "Th={.1F}C," +
-                            "Vh={.1F}N" ,
-                            sample.decode('utf-8')
-                           )
         # Note: ASCII sting changes voltage heater character if 
         # voltage is supplied or not.
         #   - '#' for voltage not supplied
-        #   - 'N' for supplied voltage
-        if data is None:
+        #   - 'N' for supplied voltage and above heating temp
+        #   - 'V' heating is on at 50% duty cycle, between high and middle control
+        #   - 'W' heating is on 100% duty cycle, between low and middle control temps
+        #   - 'F' heating is on at 50% duty cycle, heating temp below low control temp
+        if sample.endswith(b'N\r\n'):
+            data = parse.search("Dm={3D}D," +
+                                "Sm={.1F}M," +
+                                "Ta={.1F}C," +
+                                "Ua={.1F}P," +
+                                "Pa={.1F}H," +
+                                "Rc={.2F}M," +
+                                "Th={.1F}C," +
+                                "Vh={.1F}N" ,
+                                sample.decode('utf-8')
+                               )
+        elif sample.endswith(b'V\r\n'):
+            data = parse.search("Dm={3D}D," +
+                                "Sm={.1F}M," +
+                                "Ta={.1F}C," +
+                                "Ua={.1F}P," +
+                                "Pa={.1F}H," +
+                                "Rc={.2F}M," +
+                                "Th={.1F}C," +
+                                "Vh={.1F}V" ,
+                                sample.decode('utf-8')
+                               )
+        elif sample.endswith(b'W\r\n'):
+            data = parse.search("Dm={3D}D," +
+                                "Sm={.1F}M," +
+                                "Ta={.1F}C," +
+                                "Ua={.1F}P," +
+                                "Pa={.1F}H," +
+                                "Rc={.2F}M," +
+                                "Th={.1F}C," +
+                                "Vh={.1F}W" ,
+                                sample.decode('utf-8')
+                               )
+        elif sample.endswith(b'F\r\n'):
+            data = parse.search("Dm={3D}D," +
+                                "Sm={.1F}M," +
+                                "Ta={.1F}C," +
+                                "Ua={.1F}P," +
+                                "Pa={.1F}H," +
+                                "Rc={.2F}M," +
+                                "Th={.1F}C," +
+                                "Vh={.1F}W" ,
+                                sample.decode('utf-8')
+                               )
+        else:
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
                                 "Ta={.1F}C," +
