@@ -2,7 +2,8 @@ import serial
 import argparse
 import parse
 import logging
- 
+import datetime
+
 from waggle.plugin import Plugin, get_timestamp
 
 def parse_values(sample, **kwargs):
@@ -16,7 +17,7 @@ def parse_values(sample, **kwargs):
         #   - 'V' heating is on at 50% duty cycle, between high and middle control
         #   - 'W' heating is on 100% duty cycle, between low and middle control temps
         #   - 'F' heating is on at 50% duty cycle, heating temp below low control temp
-        if sample.endswith(b'N\r\n'):
+        if sample.endswith(b'N'):
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
                                 "Ta={.1F}C," +
@@ -27,7 +28,7 @@ def parse_values(sample, **kwargs):
                                 "Vh={.1F}N" ,
                                 sample.decode('utf-8')
                                )
-        elif sample.endswith(b'V\r\n'):
+        elif sample.endswith(b'V'):
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
                                 "Ta={.1F}C," +
@@ -38,7 +39,7 @@ def parse_values(sample, **kwargs):
                                 "Vh={.1F}V" ,
                                 sample.decode('utf-8')
                                )
-        elif sample.endswith(b'W\r\n'):
+        elif sample.endswith(b'W'):
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
                                 "Ta={.1F}C," +
@@ -49,7 +50,7 @@ def parse_values(sample, **kwargs):
                                 "Vh={.1F}W" ,
                                 sample.decode('utf-8')
                                )
-        elif sample.endswith(b'F\r\n'):
+        elif sample.endswith(b'F'):
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
                                 "Ta={.1F}C," +
@@ -74,6 +75,21 @@ def parse_values(sample, **kwargs):
         # Can't figure out why I can't format parse class
         strip = [float(var) for var in data]
         ndict = dict(zip(parms, strip))
+
+    elif sample.startswith(b'0R1'):
+        parms = ['Dn', 'Dm', 'Dx', 'Sn', 'Sm', 'Sx']
+        data = parse.search("Dn={3D}D," +
+                            "Dm={3D}D," +
+                            "Dx={3D}D," +
+                            "Sn={.1F}M," +
+                            "Sm={.1F}M," +
+                            "Sx={.1F}M" ,
+                            sample.decode('utf-8')
+                            )
+        # Can't figure out why I can't format parse class
+        strip = [float(var) for var in data]
+        ndict = dict(zip(parms, strip))
+        
 
     elif sample.startswith(b'0R2'):
         parms = ['Ta', 'Ua', 'Pa']
@@ -144,15 +160,18 @@ def start_publishing(args, plugin, dev, query, **kwargs):
     """
     # Define the timestamp
     timestamp = get_timestamp()
-    # Request Sample
-    logging.debug("send command to instrument to start poll")
     # Note: WXT interface commands located within manual
     # Note: query command sent to the instrument needs to be byte
     dev.write(bytearray(query + '\r\n', 'utf-8'))
     line = dev.readline()
+    # Remove all leading/trailing checksum characters
+    newstring = b''.join(bytes([byte]) for byte in line if byte  > 14)
     # Check for valid command
-    sample = parse_values(line) 
-    
+    sample = parse_values(newstring)
+    # check for debug; output direct from the instrument
+    if kwargs['debug'] == True:
+        print(datetime.datetime.fromtimestamp(timestamp / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f'), line)
+        print(newstring)
     # If valid parsed values, send to publishing
     if sample:
         # setup and run publishing schedule
@@ -163,16 +182,7 @@ def start_publishing(args, plugin, dev, query, **kwargs):
                     value = sample[key]
                 except KeyError:
                     continue
-                # Update the log
-                if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name], type(value), query)
-                logging.info("node publishing %s %s units %s type %s", 
-                             name, 
-                             value, 
-                             kwargs['units'][name], 
-                             str(type(value)),
-                             query
-                            )
+                # Publish to the node
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
@@ -191,15 +201,6 @@ def start_publishing(args, plugin, dev, query, **kwargs):
                 except KeyError:
                     continue
                 # Update the log
-                if kwargs.get('debug', 'False'):
-                    print(timestamp, name, value, kwargs['units'][name], type(value), query)
-                logging.info("beehive publishing %s %s units %s type %s", 
-                             name, 
-                             value, 
-                             kwargs['units'][name], 
-                             str(type(value)),
-                             query
-                            )
                 plugin.publish(name,
                                value=value,
                                meta={"units" : kwargs['units'][name],
@@ -251,7 +252,6 @@ def main(args):
     
     with Plugin() as plugin, serial.Serial(args.device, baudrate=args.baud_rate, timeout=1.0) as dev:
         while True:
-            try:
                 start_publishing(args, 
                                  plugin,
                                  dev,
@@ -259,26 +259,24 @@ def main(args):
                                  node_interval=args.node_interval,
                                  beehive_interval=args.beehive_interval,
                                  names=publish_names,
-                                 units=units
+                                 units=units,
+                                 debug=args.debug
                                 )
-            except Exception as e:
-                print("keyboard interrupt")
-                print(e)
-                break
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
             description="Plugin for Pushing Viasala WXT 2D anemometer data through WSN")
 
     parser.add_argument("--debug",
-                        action="store_true",
+                        type=bool,
+                        default=False,
                         dest='debug',
                         help="enable debug logs"
                         )
     parser.add_argument("--device",
                         type=str,
                         dest='device',
-                        default="/dev/ttyUSB1",
+                        default="/dev/ttyUSB7",
                         help="serial device to use"
                         )
     parser.add_argument("--baudrate",
@@ -288,7 +286,7 @@ if __name__ == '__main__':
                         help="baudrate to use"
                         )
     parser.add_argument("--node-publish-interval",
-                        default=1.0,
+                        default=-1.0,
                         dest='node_interval',
                         type=float,
                         help="interval to publish data to node " +
