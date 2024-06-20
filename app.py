@@ -26,8 +26,8 @@ def parse_values(sample, **kwargs):
                                 "Rc={.2F}M," +
                                 "Hc={.2F}M," +
                                 "Th={.1F}C," +
-                                "Vh={.1F}N" ,
-                                "Vs={.1F}V" ,
+                                "Vh={.1F}N," +
+                                "Vs={.1F}V," +
                                 "Vr={.1F}V" ,
                                 sample.decode('utf-8')
                                )
@@ -40,8 +40,8 @@ def parse_values(sample, **kwargs):
                                 "Rc={.2F}M," +
                                 "Hc={.2F}M," +
                                 "Th={.1F}C," +
-                                "Vh={.1F}N" ,
-                                "Vs={.1F}V" ,
+                                "Vh={.1F}N," +
+                                "Vs={.1F}V," +
                                 "Vr={.1F}V" ,
                                 sample.decode('utf-8')
                                )
@@ -96,8 +96,8 @@ def parse_values(sample, **kwargs):
                                 "Rc={.2F}M," +
                                 "Hc={.2F}M," +
                                 "Th={.1F}C," +
-                                "Vh={.1F}N" ,
-                                "Vs={.1F}V" ,
+                                "Vh={.1F}N," +
+                                "Vs={.1F}V," +
                                 "Vr={.1F}V" ,
                                 sample.decode('utf-8')
                                )
