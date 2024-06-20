@@ -9,7 +9,7 @@ from waggle.plugin import Plugin, get_timestamp
 def parse_values(sample, **kwargs):
     # Note: Specific to WXT ASCII query commands
     if sample.startswith(b'0R0'):
-        parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh']
+        parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Hc', 'Th', 'Vh', 'Vs', 'Vr']
         # Note: ASCII sting changes voltage heater character if 
         # voltage is supplied or not.
         #   - '#' for voltage not supplied
@@ -24,8 +24,11 @@ def parse_values(sample, **kwargs):
                                 "Ua={.1F}P," +
                                 "Pa={.1F}H," +
                                 "Rc={.2F}M," +
+                                "Hc={.2F}M," +
                                 "Th={.1F}C," +
                                 "Vh={.1F}N" ,
+                                "Vs={.1F}V" ,
+                                "Vr={.1F}V" ,
                                 sample.decode('utf-8')
                                )
         elif sample.endswith(b'V'):
@@ -35,10 +38,23 @@ def parse_values(sample, **kwargs):
                                 "Ua={.1F}P," +
                                 "Pa={.1F}H," +
                                 "Rc={.2F}M," +
+                                "Hc={.2F}M," +
                                 "Th={.1F}C," +
-                                "Vh={.1F}V" ,
+                                "Vh={.1F}N" ,
+                                "Vs={.1F}V" ,
+                                "Vr={.1F}V" ,
                                 sample.decode('utf-8')
                                )
+            #data = parse.search("Dm={3D}D," +
+            #                    "Sm={.1F}M," +
+            #                    "Ta={.1F}C," +
+            #                    "Ua={.1F}P," +
+            #                    "Pa={.1F}H," +
+            #                    "Rc={.2F}M," +
+            #                    "Th={.1F}C," +
+            #                    "Vh={.1F}V" ,
+            #                    sample.decode('utf-8')
+            #                   )
         elif sample.endswith(b'W'):
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
@@ -62,14 +78,27 @@ def parse_values(sample, **kwargs):
                                 sample.decode('utf-8')
                                )
         else:
+            #data = parse.search("Dm={3D}D," +
+            #                    "Sm={.1F}M," +
+            #                    "Ta={.1F}C," +
+            #                    "Ua={.1F}P," +
+            #                    "Pa={.1F}H," +
+            #                    "Rc={.2F}M," +
+            #                    "Th={.1F}C," +
+            #                    "Vh={.1F}#" ,
+            #                    sample.decode('utf-8')
+            #                   )
             data = parse.search("Dm={3D}D," +
                                 "Sm={.1F}M," +
                                 "Ta={.1F}C," +
                                 "Ua={.1F}P," +
                                 "Pa={.1F}H," +
                                 "Rc={.2F}M," +
+                                "Hc={.2F}M," +
                                 "Th={.1F}C," +
-                                "Vh={.1F}#" ,
+                                "Vh={.1F}N" ,
+                                "Vs={.1F}V" ,
+                                "Vr={.1F}V" ,
                                 sample.decode('utf-8')
                                )
         # Can't figure out why I can't format parse class
