@@ -9,161 +9,124 @@ from waggle.plugin import Plugin, get_timestamp
 def parse_values(sample, **kwargs):
     # Note: Specific to WXT ASCII query commands
     if sample.startswith(b'0R0'):
-        parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Hc', 'Th', 'Vh', 'Vs', 'Vr']
-        # Note: ASCII sting changes voltage heater character if 
+        # ASCII sting changes voltage heater character if 
         # voltage is supplied or not.
-        #   - '#' for voltage not supplied
-        #   - 'N' for supplied voltage and above heating temp
+        #   - '#' for voltage not supplied  
+        #          - assigned value - 0
+        #   - 'N' for supplied voltage and above heating temp 
+        #          - assigned value - 1
         #   - 'V' heating is on at 50% duty cycle, between high and middle control
+        #          - assigned value - 2
         #   - 'W' heating is on 100% duty cycle, between low and middle control temps
+        #          - assigned value - 3
         #   - 'F' heating is on at 50% duty cycle, heating temp below low control temp
-        if sample.endswith(b'N'):
-            data = parse.search("Dm={3D}D," +
-                                "Sm={.1F}M," +
-                                "Ta={.1F}C," +
-                                "Ua={.1F}P," +
-                                "Pa={.1F}H," +
-                                "Rc={.2F}M," +
-                                "Hc={.2F}M," +
-                                "Th={.1F}C," +
-                                "Vh={.1F}N," +
-                                "Vs={.1F}V," +
-                                "Vr={.1F}V" ,
-                                sample.decode('utf-8')
-                               )
-        elif sample.endswith(b'V'):
-            data = parse.search("Dm={3D}D," +
-                                "Sm={.1F}M," +
-                                "Ta={.1F}C," +
-                                "Ua={.1F}P," +
-                                "Pa={.1F}H," +
-                                "Rc={.2F}M," +
-                                "Hc={.2F}M," +
-                                "Th={.1F}C," +
-                                "Vh={.1F}N," +
-                                "Vs={.1F}V," +
-                                "Vr={.1F}V" ,
-                                sample.decode('utf-8')
-                               )
-            #data = parse.search("Dm={3D}D," +
-            #                    "Sm={.1F}M," +
-            #                    "Ta={.1F}C," +
-            #                    "Ua={.1F}P," +
-            #                    "Pa={.1F}H," +
-            #                    "Rc={.2F}M," +
-            #                    "Th={.1F}C," +
-            #                    "Vh={.1F}V" ,
-            #                    sample.decode('utf-8')
-            #                   )
-        elif sample.endswith(b'W'):
-            data = parse.search("Dm={3D}D," +
-                                "Sm={.1F}M," +
-                                "Ta={.1F}C," +
-                                "Ua={.1F}P," +
-                                "Pa={.1F}H," +
-                                "Rc={.2F}M," +
-                                "Th={.1F}C," +
-                                "Vh={.1F}W" ,
-                                sample.decode('utf-8')
-                               )
-        elif sample.endswith(b'F'):
-            data = parse.search("Dm={3D}D," +
-                                "Sm={.1F}M," +
-                                "Ta={.1F}C," +
-                                "Ua={.1F}P," +
-                                "Pa={.1F}H," +
-                                "Rc={.2F}M," +
-                                "Th={.1F}C," +
-                                "Vh={.1F}W" ,
-                                sample.decode('utf-8')
-                               )
+        #          - assigned value - 4
+        
+        # The heater character is the last value, skip for now.
+        data = parse.search("Dm={:d}D," +
+                    "Sm={:f}M," +
+                    "Ta={:f}C," +
+                    "Ua={:f}P," +
+                    "Pa={:f}H," +
+                    "Rc={:f}M," +
+                    "Hc={:f}M," +
+                    "Th={:f}C," +
+                    "Vh={:f}N," +
+                    "Vs={:f}V," +
+                    "Vr={:f}" ,
+                    sample.decode('utf-8')[:-1]
+        )
+        if data:
+            parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Hc', 'Th', 'Vh', 'Vs', 'Vr']
+            # Convert to a list to convert from parse result object
+            strip = [float(var) for var in data]
+            ndict = dict(zip(parms, strip))
+            # Apply the heater status to the dictionary
+            if sample.decode('utf-8')[-1] == 'N':
+                ndict.update({'Jo' : 1})
+            elif sample.decode('utf-8')[-1] == 'V':
+                ndict.update({'Jo' : 2})
+            elif sample.decode('utf-8')[-1] == 'W':
+                ndict.udpate({'Jo' : 3})
+            elif sample.decode('utf-8')[-1] == 'F':
+                ndict.update({'Jo' : 5})
+            else:
+                ndict.update({'Jo' : 0})         
         else:
-            #data = parse.search("Dm={3D}D," +
-            #                    "Sm={.1F}M," +
-            #                    "Ta={.1F}C," +
-            #                    "Ua={.1F}P," +
-            #                    "Pa={.1F}H," +
-            #                    "Rc={.2F}M," +
-            #                    "Th={.1F}C," +
-            #                    "Vh={.1F}#" ,
-            #                    sample.decode('utf-8')
-            #                   )
-            data = parse.search("Dm={3D}D," +
-                                "Sm={.1F}M," +
-                                "Ta={.1F}C," +
-                                "Ua={.1F}P," +
-                                "Pa={.1F}H," +
-                                "Rc={.2F}M," +
-                                "Hc={.2F}M," +
-                                "Th={.1F}C," +
-                                "Vh={.1F}N," +
-                                "Vs={.1F}V," +
-                                "Vr={.1F}V" ,
-                                sample.decode('utf-8')
-                               )
-        # Can't figure out why I can't format parse class
-        strip = [float(var) for var in data]
-        ndict = dict(zip(parms, strip))
+            # The WXT summary command is user-defined. 
+            # Thus, WXT may not have same summary configuration as the CROCUS nodes.
+            # Define the faculty default for the summary command.
+            # The heater character is the last value, skip for now.
+            data = parse.search("Dm={:d}D," +
+                                "Sm={:f}M," +
+                                "Ta={:f}C," +
+                                "Ua={:f}P," +
+                                "Pa={:f}H," +
+                                "Rc={:f}M," +
+                                "Th={:f}C," +
+                                "Vh={:f}N," +
+                                "Vs={:f}V," +
+                                "Vr={:f}" ,
+                                sample.decode('utf-8')[:-1]
+            )
+            if data:
+                parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh', 'Vs', 'Vr']
+                # Convert to a list to convert from parse result object
+                strip = [float(var) for var in data]
+                ndict = dict(zip(parms, strip))
+                # Apply the heater status to the dictionary
+                if sample.decode('utf-8')[-1] == 'N':
+                    ndict.update({'Jo' : 1})
+                elif sample.decode('utf-8')[-1] == 'V':
+                    ndict.update({'Jo' : 2})
+                elif sample.decode('utf-8')[-1] == 'W':
+                    ndict.udpate({'Jo' : 3})
+                elif sample.decode('utf-8')[-1] == 'F':
+                    ndict.update({'Jo' : 5})
+                else:
+                    ndict.update({'Jo' : 0})     
 
     elif sample.startswith(b'0R1'):
         parms = ['Dn', 'Dm', 'Dx', 'Sn', 'Sm', 'Sx']
-        data = parse.search("Dn={3D}D," +
-                            "Dm={3D}D," +
-                            "Dx={3D}D," +
-                            "Sn={.1F}M," +
-                            "Sm={.1F}M," +
-                            "Sx={.1F}M" ,
+        data = parse.search("Dn={:d}D," +
+                            "Dm={:d}D," +
+                            "Dx={:d}D," +
+                            "Sn={:f}M," +
+                            "Sm={:f}M," +
+                            "Sx={:f}M" ,
                             sample.decode('utf-8')
                             )
-        # Can't figure out why I can't format parse class
-        strip = [float(var) for var in data]
-        ndict = dict(zip(parms, strip))
+        if data:
+            # Can't figure out why I can't format parse class
+            strip = [float(var) for var in data]
+            ndict = dict(zip(parms, strip))
         
-
     elif sample.startswith(b'0R2'):
         parms = ['Ta', 'Ua', 'Pa']
-        data = parse.search("Ta={.1F}C," +
-                            "Ua={.1F}P," +
-                            "Pa={.1F}H" ,
+        data = parse.search("Ta={:f}C," +
+                            "Ua={:f}P," +
+                            "Pa={:f}H" ,
                             sample.decode('utf-8')
                             )
-        # Can't figure out why I can't format parse class
-        strip = [float(var) for var in data]
-        ndict = dict(zip(parms, strip))
+        if data:
+            # Can't figure out why I can't format parse class
+            strip = [float(var) for var in data]
+            ndict = dict(zip(parms, strip))
 
     elif sample.startswith(b'0R3'):
         parms = ['Rc', 'Rd', 'Ri', 'Hc', 'Hd', 'Hi']
-        data = parse.search("Rc={.2F}M," +
-                            "Rd={.2F}s," +
-                            "Ri={.2F}M," +
-                            "Hc={.2F}M," +
-                            "Hd={.2F}s," +
-                            "Hi={.2F}M" ,
+        data = parse.search("Rc={:f}M," +
+                            "Rd={:f}S," +
+                            "Ri={:f}M," +
+                            "Hc={:f}M," +
+                            "Hd={:f}S," +
+                            "Hi={:f}M" ,
                             sample.decode('utf-8')
                             )
-        # Can't figure out why I can't format parse class
-        strip = [float(var) for var in data]
-        ndict = dict(zip(parms, strip))
-
-    # note: this should be 0R5, but funky values without heater plugged in
-    elif sample.startswith(b'0R9'):
-        parms = ['Th', 'Vh', 'Vs', 'Vr']
-        data = parse.search("Th={.1F}C," +
-                            "Vh={.1F}N," +
-                            "Vs={.1F}V," +
-                            "Vr={.3F)}V" ,
-                            sample.decode('utf-8')
-                            )
-        if data is None:
-            data = parse.search("Th={.1F}C," +
-                                "Vh={.1F}#," +
-                                "Vs={.1F}V," +
-                                "Vr={.3F)}V" ,
-                                sample.decode('utf-8')
-                               )
-        # Can't figure out why I can't format parse class
-        strip = [float(var) for var in data]
-        ndict = dict(zip(parms, strip))
+        if data:
+            # Can't figure out why I can't format parse class
+            strip = [float(var) for var in data]
+            ndict = dict(zip(parms, strip))
 
     else:
         ndict = None
@@ -203,6 +166,12 @@ def start_publishing(args, plugin, dev, query, **kwargs):
         print(newstring)
     # If valid parsed values, send to publishing
     if sample:
+        # Define a list to hold the additional meta data for the heater
+        heater_info = ["Heating Voltage Not Supplied",
+                       "Heating Voltage Supplied and Above Heating Temperature Threshold",
+                       "Heating Voltage Supplied and is between High and Middle Control Temperature Threshold",
+                       "Heating Voltage Supplied and is between Low and Middle Control Temperature Threshold",
+                       "Heating Voltage SUpplied and is Below Low Control Temperature Threshold"]
         # setup and run publishing schedule
         if kwargs['node_interval'] > 0:
             # publish each value in sample
@@ -230,15 +199,27 @@ def start_publishing(args, plugin, dev, query, **kwargs):
                 except KeyError:
                     continue
                 # Update the log
-                plugin.publish(name,
-                               value=value,
-                               meta={"units" : kwargs['units'][name],
-                                     "sensor" : "vaisala-wxt536",
-                                     "missing" : "-9999.9"
+                if key == 'Jo':
+                    plugin.publish(name,
+                                   value=value,
+                                   meta={"units" : kwargs['units'][name],
+                                         "sensor" : "vaisala-wxt536",
+                                         "missing" : "-9999.9",
+                                         "status" : heater_info[value]
                                     },
-                               scope="beehive",
-                               timestamp=timestamp
-                              )
+                                    scope="beehive",
+                                    timestamp=timestamp
+                                    )
+                else:
+                    plugin.publish(name,
+                                   value=value,
+                                   meta={"units" : kwargs['units'][name],
+                                         "sensor" : "vaisala-wxt536",
+                                         "missing" : "-9999.9",
+                                    },
+                                    scope="beehive",
+                                    timestamp=timestamp
+                                    )
 
 def main(args):
     publish_names = {"wxt.wind.direction" : "Dm",
@@ -257,7 +238,8 @@ def main(args):
                      "wxt.heater.temp" : "Th",
                      "wxt.heater.volt" : "Vh",
                      "wxt.voltage.supply" : "Vs",
-                     "wxt.voltage.reference" : "Vr"
+                     "wxt.voltage.reference" : "Vr",
+                     "wxt.heater.status" : "Jo"
                     }
 
     units = {"wxt.wind.direction" : "degrees",
@@ -276,6 +258,7 @@ def main(args):
              "wxt.voltage.supply" : "volts",
              "wxt.heater.temp" : "degree Celsius",
              "wxt.heater.volt" : "volts",
+             "wxt.heater.status" : "unitless",
              "wxt.voltage.reference" : "volts"
              }
     
