@@ -64,13 +64,11 @@ def parse_values(sample, **kwargs):
                                 "Pa={:f}H," +
                                 "Rc={:f}M," +
                                 "Th={:f}C," +
-                                "Vh={:f}N," +
-                                "Vs={:f}V," +
-                                "Vr={:f}" ,
+                                "Vh={:f}" ,
                                 sample.decode('utf-8')[:-1]
             )
             if data:
-                parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh', 'Vs', 'Vr']
+                parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Th', 'Vh']
                 # Convert to a list to convert from parse result object
                 strip = [float(var) for var in data]
                 ndict = dict(zip(parms, strip))
@@ -129,6 +127,7 @@ def parse_values(sample, **kwargs):
             ndict = dict(zip(parms, strip))
 
     else:
+        print("hey not hitting else")
         ndict = None
                  
     return ndict
@@ -158,12 +157,12 @@ def start_publishing(args, plugin, dev, query, **kwargs):
     line = dev.readline()
     # Remove all leading/trailing checksum characters
     newstring = b''.join(bytes([byte]) for byte in line if byte  > 14)
-    # Check for valid command
-    sample = parse_values(newstring)
     # check for debug; output direct from the instrument
     if kwargs['debug'] == True:
         print(datetime.datetime.fromtimestamp(timestamp / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f'), line)
         print(newstring)
+    # Check for valid command
+    sample = parse_values(newstring)
     # If valid parsed values, send to publishing
     if sample:
         # Define a list to hold the additional meta data for the heater
