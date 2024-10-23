@@ -127,7 +127,6 @@ def parse_values(sample, **kwargs):
             ndict = dict(zip(parms, strip))
 
     else:
-        print("hey not hitting else")
         ndict = None
                  
     return ndict
