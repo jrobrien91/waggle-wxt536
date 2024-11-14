@@ -42,9 +42,9 @@ def parse_values(sample, **kwargs):
             ndict = dict(zip(parms, strip))
             # Search for remaining heating options
             if parse.search("Vs={:f}V,", sample.decode('utf-8')):
-                ndict.update({'Vs' : [float(var) for var in parse.search("Vh={:f}V", sinput.decode('utf-8'))][0]})
+                ndict.update({'Vs' : [float(var) for var in parse.search("Vh={:f}V", sample.decode('utf-8'))][0]})
             if parse.search("Vr={:f}V,", sample.decode('utf-8')):
-                ndict.update({'Vr' : [float(var) for var in parse.search("Vh={:f}V", sinput.decode('utf-8'))][0]})
+                ndict.update({'Vr' : [float(var) for var in parse.search("Vh={:f}V", sample.decode('utf-8'))][0]})
             # Apply the heater status to the dictionary
             if parse.search("Vh={:f}N", sample.decode('utf-8')):
                 ndict.update({'Jo' : 1})
