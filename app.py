@@ -7,6 +7,8 @@ import datetime
 from waggle.plugin import Plugin, get_timestamp
 
 def parse_values(sample, **kwargs):
+    # Set a default
+    ndict = None
     # Note: Specific to WXT ASCII query commands
     if sample.startswith(b'0R0'):
         # ASCII sting changes voltage heater character if 
@@ -21,7 +23,6 @@ def parse_values(sample, **kwargs):
         #          - assigned value - 3
         #   - 'F' heating is on at 50% duty cycle, heating temp below low control temp
         #          - assigned value - 4
-        
         # The heater character is the last value, skip for now.
         data = parse.search("Dm={:d}D," +
                     "Sm={:f}M," +
@@ -31,24 +32,27 @@ def parse_values(sample, **kwargs):
                     "Rc={:f}M," +
                     "Hc={:f}M," +
                     "Th={:f}C," +
-                    "Vh={:f}N," +
-                    "Vs={:f}V," +
-                    "Vr={:f}" ,
-                    sample.decode('utf-8')[:-1]
+                    "Vh={:f}",
+                    sample.decode('utf-8')
         )
         if data:
-            parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Hc', 'Th', 'Vh', 'Vs', 'Vr']
+            parms = ['Dm', 'Sm', 'Ta', 'Ua', 'Pa', 'Rc', 'Hc', 'Th', 'Vh']
             # Convert to a list to convert from parse result object
             strip = [float(var) for var in data]
             ndict = dict(zip(parms, strip))
+            # Search for remaining heating options
+            if parse.search("Vs={:f}V,", sample.decode('utf-8')):
+                ndict.update({'Vs' : [float(var) for var in parse.search("Vh={:f}V", sinput.decode('utf-8'))][0]})
+            if parse.search("Vr={:f}V,", sample.decode('utf-8')):
+                ndict.update({'Vr' : [float(var) for var in parse.search("Vh={:f}V", sinput.decode('utf-8'))][0]})
             # Apply the heater status to the dictionary
-            if sample.decode('utf-8')[-1] == 'N':
+            if parse.search("Vh={:f}N", sample.decode('utf-8')):
                 ndict.update({'Jo' : 1})
-            elif sample.decode('utf-8')[-1] == 'V':
+            elif parse.search("Vh={:f}V", sample.decode('utf-8')):
                 ndict.update({'Jo' : 2})
-            elif sample.decode('utf-8')[-1] == 'W':
+            elif parse.search("Vh={:f}W", sample.decode('utf-8')):
                 ndict.udpate({'Jo' : 3})
-            elif sample.decode('utf-8')[-1] == 'F':
+            elif parse.search("Vh={:f}F", sample.decode('utf-8')):
                 ndict.update({'Jo' : 5})
             else:
                 ndict.update({'Jo' : 0})         
