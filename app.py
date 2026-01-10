@@ -1,9 +1,19 @@
+"""
+This module interfaces with the Vaisala WXT536 and parses the output of the
+instrument before uploading to Beehive via Waggle. 
+
+To display currently available serial ports:
+python -m serial.tools.list_ports
+"""
+
 import serial
 import argparse
 import parse
-import logging
 import datetime
+from pathlib import Path
+import threading
 
+from datetime import datetime, timezone
 from waggle.plugin import Plugin, get_timestamp
 
 def parse_values(sample, **kwargs):
@@ -11,11 +21,11 @@ def parse_values(sample, **kwargs):
     ndict = None
     # Note: Specific to WXT ASCII query commands
     if sample.startswith(b'0R0'):
-        # ASCII sting changes voltage heater character if 
+        # ASCII sting changes voltage heater character if
         # voltage is supplied or not.
-        #   - '#' for voltage not supplied  
+        #   - '#' for voltage not supplied
         #          - assigned value - 0
-        #   - 'N' for supplied voltage and above heating temp 
+        #   - 'N' for supplied voltage and above heating temp
         #          - assigned value - 1
         #   - 'V' heating is on at 50% duty cycle, between high and middle control
         #          - assigned value - 2
@@ -51,11 +61,11 @@ def parse_values(sample, **kwargs):
             elif parse.search("Vh={:f}V", sample.decode('utf-8')):
                 ndict.update({'Jo' : 2})
             elif parse.search("Vh={:f}W", sample.decode('utf-8')):
-                ndict.udpate({'Jo' : 3})
+                ndict.update({'Jo' : 3})
             elif parse.search("Vh={:f}F", sample.decode('utf-8')):
                 ndict.update({'Jo' : 5})
             else:
-                ndict.update({'Jo' : 0})         
+                ndict.update({'Jo' : 0})
         else:
             # The WXT summary command is user-defined. 
             # Thus, WXT may not have same summary configuration as the CROCUS nodes.
@@ -68,7 +78,7 @@ def parse_values(sample, **kwargs):
                                 "Pa={:f}H," +
                                 "Rc={:f}M," +
                                 "Th={:f}C," +
-                                "Vh={:f}" ,
+                                "Vh={:f}",
                                 sample.decode('utf-8')[:-1]
             )
             if data:
@@ -82,11 +92,11 @@ def parse_values(sample, **kwargs):
                 elif sample.decode('utf-8')[-1] == 'V':
                     ndict.update({'Jo' : 2})
                 elif sample.decode('utf-8')[-1] == 'W':
-                    ndict.udpate({'Jo' : 3})
+                    ndict.update({'Jo' : 3})
                 elif sample.decode('utf-8')[-1] == 'F':
                     ndict.update({'Jo' : 5})
                 else:
-                    ndict.update({'Jo' : 0})     
+                    ndict.update({'Jo' : 0})
 
     elif sample.startswith(b'0R1'):
         parms = ['Dn', 'Dm', 'Dx', 'Sn', 'Sm', 'Sx']
@@ -95,19 +105,19 @@ def parse_values(sample, **kwargs):
                             "Dx={:d}D," +
                             "Sn={:f}M," +
                             "Sm={:f}M," +
-                            "Sx={:f}M" ,
+                            "Sx={:f}M",
                             sample.decode('utf-8')
                             )
         if data:
             # Can't figure out why I can't format parse class
             strip = [float(var) for var in data]
             ndict = dict(zip(parms, strip))
-        
+
     elif sample.startswith(b'0R2'):
         parms = ['Ta', 'Ua', 'Pa']
         data = parse.search("Ta={:f}C," +
                             "Ua={:f}P," +
-                            "Pa={:f}H" ,
+                            "Pa={:f}H",
                             sample.decode('utf-8')
                             )
         if data:
@@ -122,7 +132,7 @@ def parse_values(sample, **kwargs):
                             "Ri={:f}M," +
                             "Hc={:f}M," +
                             "Hd={:f}S," +
-                            "Hi={:f}M" ,
+                            "Hi={:f}M",
                             sample.decode('utf-8')
                             )
         if data:
@@ -132,8 +142,49 @@ def parse_values(sample, **kwargs):
 
     else:
         ndict = None
-                 
+
     return ndict
+
+def list_files(img_dir):
+    """
+    Lists all files within a directory and their sizes in bytes.
+
+    Parameters:
+        img_dir: The path to the directory to list files from within
+            the DockerFile image.
+    """
+    dir_path = Path(img_dir)
+    saved_files = sorted(list(dir_path.glob("*.csv")))
+    if saved_files:
+        print('updated path/files: ')
+        for sfile in saved_files:
+            file_size = sfile.stat().st_size
+            print(f"{sfile}: {file_size} bytes")
+
+def define_filename(site, outdir):
+    """Function to generate the filename based on the current time"""
+    nout = (site +
+            '.wxt536.' +
+            datetime.now(timezone.utc).strftime("%Y%m%d.%H%M%S") +
+            '.csv')
+    # Define the Path to the CSV file
+    csv_path = Path(outdir) / nout
+    # Ensure the parent directory exists
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    return csv_path
+
+def publish_file(file_path):
+    """Utilizing threading, publish file to Beehive"""
+    def upload_file(file_path):
+        """Call the Waggle Plugin"""
+        with Plugin() as plugin:
+            plugin.upload_file(file_path, timestamp=get_timestamp())
+            print(f"Published {file_path}")
+    # Define threads
+    thread = threading.Thread(target=upload_file, args=(file_path,))
+    thread.start()
+    thread.join()
 
 
 def start_publishing(args, plugin, dev, query, **kwargs):
@@ -173,26 +224,7 @@ def start_publishing(args, plugin, dev, query, **kwargs):
                        "Heating Voltage Supplied and Above Heating Temperature Threshold",
                        "Heating Voltage Supplied and is between High and Middle Control Temperature Threshold",
                        "Heating Voltage Supplied and is between Low and Middle Control Temperature Threshold",
-                       "Heating Voltage SUpplied and is Below Low Control Temperature Threshold"]
-        # setup and run publishing schedule
-        if kwargs['node_interval'] > 0:
-            # publish each value in sample
-            for name, key in kwargs['names'].items():
-                try:
-                    value = sample[key]
-                except KeyError:
-                    continue
-                # Publish to the node
-                plugin.publish(name,
-                               value=value,
-                               meta={"units" : kwargs['units'][name],
-                                     "sensor" : "vaisala-wxt536",
-                                     "missing" : "-9999.9",
-                                    },
-                               scope="node",
-                               timestamp=timestamp
-                              )
-                                    
+                       "Heating Voltage Supplied and is Below Low Control Temperature Threshold"]              
         if kwargs['beehive_interval'] > 0:
             # publish each value in sample
             for name, key in kwargs['names'].items():
@@ -264,60 +296,106 @@ def main(args):
              "wxt.voltage.reference" : "volts"
              }
     
-    with Plugin() as plugin, serial.Serial(args.device, baudrate=args.baud_rate, timeout=1.0) as dev:
-        while True:
-                start_publishing(args, 
+    with Plugin() as plugin, serial.Serial(args.device,
+					                       args.baud_rate,
+					                       parity=serial.PARITY_NONE,
+					                       stopbits=serial.STOPBITS_ONE,
+					                       bytesize=serial.EIGHTBITS,
+					                       timeout=1) as ser:
+        try:
+            print(f"Serial connection to {args.device} is open")
+            while True:
+                # Check the serial connection. If not defined, re-establish.
+                if ser is None:
+                    ser = serial.Serial(args.device,
+					                    args.baud_rate,
+					                    parity=serial.PARITY_NONE,
+					                    stopbits=serial.STOPBITS_ONE,
+					                    bytesize=serial.EIGHTBITS,
+					                    timeout=1)
+                    print(f"Reconnecting Serial Connection with {args.device}")
+                # Begin publishing data - parse telegram and upload to beehive
+                start_publishing(args,
                                  plugin,
-                                 dev,
+                                 ser,
                                  args.query,
-                                 node_interval=args.node_interval,
                                  beehive_interval=args.beehive_interval,
                                  names=publish_names,
                                  units=units,
                                  debug=args.debug
-                                )
+                    )
+        except KeyboardInterrupt:
+            print(f"Program interrupted, closing serial port {args.device}")
+        finally:
+            if ser:
+                ser.close()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-            description="Plugin for Pushing Viasala WXT 2D anemometer data through WSN")
+
+    plugin_descript = ("Script for interfacing with the Vaisala WXT536 datastream." +
+                       " Publishes data to Sage Beehive as immediate or averaged " +
+                       " observations, while providing files of raw observations " +
+                       " at user selected frequency."
+    )
+
+    plugin_usage = ("python app.py --debug True --behive-publish-interval 60")
+
+    parser = argparse.ArgumentParser(description=plugin_descript,
+                                     usage=plugin_usage)
 
     parser.add_argument("--debug",
                         type=bool,
                         default=False,
                         dest='debug',
-                        help="enable debug logs"
+                        help="[Boolean|Default False] Enable Output from Serial"
+                             " Communication to Screen for Debugging"
                         )
     parser.add_argument("--device",
                         type=str,
                         dest='device',
                         default="/dev/ttyUSB7",
-                        help="serial device to use"
+                        help="[str|Default /dev/ttyUSB7] Serial Device to" +
+                             " Establish Serial Communication"
                         )
     parser.add_argument("--baudrate",
                         type=int,
                         dest='baud_rate',
                         default=19200,
-                        help="baudrate to use"
-                        )
-    parser.add_argument("--node-publish-interval",
-                        default=-1.0,
-                        dest='node_interval',
-                        type=float,
-                        help="interval to publish data to node " +
-                             "(negative values disable node publishing)"
-                        )
-    parser.add_argument("--beehive-publish-interval",
-                        default=1.0,
-                        dest='beehive_interval',
-                        type=float,
-                        help="interval to publish data to beehive " +
-                             "(negative values disable beehive publishing)"
+                        help="[int|Default 19200] Serial Communication Baudrate"
                         )
     parser.add_argument("--query",
                         type=str,
                         default="0R0",
-                        help="ASCII query command to send to the instrument"
+                        dest="query",
+                        help="[str|Default 0R0] ASCII query command to send" +
+                             " to the instrument"
                        )
+    parser.add_argument("--query-interval",
+                        type=int,
+                        default=1,
+                        dest="query_interval",
+                        help="[int|Default 1Hz] WXT Query Frequency "
+                       )
+    parser.add_argument("--beehive-publish-interval",
+                        default=900.0,
+                        dest='beehive_interval',
+                        type=float,
+                        help="[float|Default 1.0] Interval to publish data to" +
+                             " beehive (negative values disable beehive publishing)." +
+                             " Values > "
+                        )
+    parser.add_argument("--outdir",
+                        type=str,
+                        dest="outdir",
+                        default=".",
+                        help="[str] Directory where to output files to"
+                        )
+    parser.add_argument("--site",
+                        type=str,
+                        default="atmos",
+                        dest="site",
+                        help="[str] Site Identifer for Deployment location"
+                        )
     args = parser.parse_args()
 
 
