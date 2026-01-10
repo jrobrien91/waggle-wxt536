@@ -9,7 +9,6 @@ python -m serial.tools.list_ports
 import serial
 import argparse
 import parse
-import datetime
 from pathlib import Path
 import threading
 
@@ -213,7 +212,7 @@ def start_publishing(args, plugin, dev, query, **kwargs):
     newstring = b''.join(bytes([byte]) for byte in line if byte  > 14)
     # check for debug; output direct from the instrument
     if kwargs['debug'] == True:
-        print(datetime.datetime.fromtimestamp(timestamp / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f'), line)
+        print(datetime.fromtimestamp(timestamp / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f'), line)
         print(newstring)
     # Check for valid command
     sample = parse_values(newstring)
