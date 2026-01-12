@@ -324,7 +324,11 @@ def main(args):
                                  debug=args.debug
                 )
                 # Wait for the next query interval
-                time.sleep(args.query_interval)
+                if isinstance(args.query_interval, (int, float)) and args.query_interval > 0:
+                    time.sleep(args.query_interval)
+                else:
+                    print("Invalid query interval, defaulting to 1 second")
+                    time.sleep(1)
         except KeyboardInterrupt:
             print(f"Program interrupted, closing serial port {args.device}")
         finally:
