@@ -217,6 +217,7 @@ def start_publishing(plugin, dev, query, **kwargs):
         print(newstring)
     # Check for valid command
     sample = parse_values(newstring)
+    print(f"Parsed Sample: {sample}")
     # If valid parsed values, send to publishing
     if sample:
         # Define a list to hold the additional meta data for the heater
@@ -387,7 +388,7 @@ if __name__ == '__main__':
                         type=float,
                         help="[float|Default 1.0] Interval to publish data to" +
                              " beehive (negative values disable beehive publishing)." +
-                             " Values > "
+                             " Values > query-interval will result in averaged data."
                         )
     parser.add_argument("--outdir",
                         type=str,
