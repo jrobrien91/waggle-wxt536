@@ -6,6 +6,7 @@ To display currently available serial ports:
 python -m serial.tools.list_ports
 """
 
+import time
 import serial
 import argparse
 import parse
@@ -186,7 +187,7 @@ def publish_file(file_path):
     thread.join()
 
 
-def start_publishing(args, plugin, dev, query, **kwargs):
+def start_publishing(plugin, dev, query, **kwargs):
     """
     start_publishing initializes the Visala WXT530
     Begins sampling and publishing data
@@ -223,7 +224,7 @@ def start_publishing(args, plugin, dev, query, **kwargs):
                        "Heating Voltage Supplied and Above Heating Temperature Threshold",
                        "Heating Voltage Supplied and is between High and Middle Control Temperature Threshold",
                        "Heating Voltage Supplied and is between Low and Middle Control Temperature Threshold",
-                       "Heating Voltage Supplied and is Below Low Control Temperature Threshold"]              
+                       "Heating Voltage Supplied and is Below Low Control Temperature Threshold"] 
         if kwargs['beehive_interval'] > 0:
             # publish each value in sample
             for name, key in kwargs['names'].items():
@@ -294,7 +295,7 @@ def main(args):
              "wxt.heater.status" : "unitless",
              "wxt.voltage.reference" : "volts"
              }
-    
+
     with Plugin() as plugin, serial.Serial(args.device,
 					                       args.baud_rate,
 					                       parity=serial.PARITY_NONE,
@@ -314,15 +315,16 @@ def main(args):
 					                    timeout=1)
                     print(f"Reconnecting Serial Connection with {args.device}")
                 # Begin publishing data - parse telegram and upload to beehive
-                start_publishing(args,
-                                 plugin,
+                start_publishing(plugin,
                                  ser,
                                  args.query,
                                  beehive_interval=args.beehive_interval,
                                  names=publish_names,
                                  units=units,
                                  debug=args.debug
-                    )
+                )
+                # Wait for the next query interval
+                time.sleep(args.query_interval)
         except KeyboardInterrupt:
             print(f"Program interrupted, closing serial port {args.device}")
         finally:
@@ -373,7 +375,7 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         dest="query_interval",
-                        help="[int|Default 1Hz] WXT Query Frequency "
+                        help="[int|Default 1sec] WXT Query Frequency in seconds "
                        )
     parser.add_argument("--beehive-publish-interval",
                         default=900.0,
