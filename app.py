@@ -244,14 +244,10 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
         
         ## -- Write to Local File if Specified ----
         if 'local_file' in kwargs and kwargs['local_file']:
-            print(f"Writing sample to local file {kwargs['local_file'].name}")
-            # Write the sample to the local CSV file
-            with open(kwargs['local_file'].name, mode='a', newline='', encoding="utf-8") as csvfile:
-                csv_writer = csv.writer(csvfile)
-                ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
-                csv_writer.writerow([ts, *out_values])
-                csvfile.flush()
+            ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
+            kwargs['local_file'].writerow([ts, *out_values])
+            kwargs['local_file'].flush()
 
         ## -- Publish Parsed Telegram to Beehive ---
         if args.beehive_interval > 0:
