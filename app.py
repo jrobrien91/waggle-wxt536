@@ -254,7 +254,7 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
         ## -- Publish Parsed Telegram to Beehive ---
         if args.beehive_interval > 0:
             # publish each value in sample
-            for name, key in kwargs['names'].items():
+            for name, key in publish_names.items():
                 try:
                     value = sample[name]
                 except KeyError:
