@@ -316,7 +316,7 @@ def main(args):
 
             # ---- Local File Initialization ----
             # Check to see if data are written to local file for upload
-            if args.file_interal > 0:
+            if args.file_interval > 0:
                 print(f"Writing data to local file every {args.file_interval} seconds")
                 # Define the filename
                 nfile_writer = initialize_local_file(args.site, args.outdir, publish_names)
@@ -325,7 +325,7 @@ def main(args):
             while True:
 
                 # --- Check on Local File Creation Interval ----
-                if args.file_interal > 0:
+                if args.file_interval > 0:
                     current_timestamp = time.gmtime()
                     if (current_timestamp.tm_min % args.file_interval == 0
                             and current_timestamp.tm_min != last_timestamp.tm_min):
@@ -354,7 +354,7 @@ def main(args):
                 
                 ## --- Begin Data Publishing ----
                 # Begin publishing data - parse telegram and upload to beehive
-                if args.file_interal > 0:
+                if args.file_interval > 0:
                     start_publishing(args,
                                      plugin,
                                      ser,
