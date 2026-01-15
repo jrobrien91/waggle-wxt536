@@ -321,6 +321,11 @@ def main(args):
                 # Define the filename
                 nfile_writer = initialize_local_file(args.site, args.outdir, publish_names)
 
+            # if desired, check on current files and file sizes
+            if args.debug == True:
+                # check on the files
+                list_files(args.outdir)
+
             # --- Main WXT Interface Loop ----
             while True:
 
@@ -336,10 +341,6 @@ def main(args):
                         # Intialize a new local file
                         nfile_writer = initialize_local_file(args.site, args.outdir, publish_names)
                         last_timestamp = current_timestamp
-                    # if desired, check on current files and file sizes
-                    if args.verbose:
-                        # check on the files
-                        list_files(args.outdir)
 
                 ## --- Verify Serial Connection ----
                 # Check the serial connection. If not defined, re-establish.
@@ -446,13 +447,13 @@ if __name__ == '__main__':
                         type=str,
                         dest="outdir",
                         default=".",
-                        help="[str] Directory where to output files to"
+                        help="[str| Default Current Working Directory] Directory where to output files to"
                         )
     parser.add_argument("--site",
                         type=str,
                         default="atmos",
                         dest="site",
-                        help="[str] Site Identifer for Deployment location"
+                        help="[str | Default atmos] Site Identifer for Deployment location"
                         )
     args = parser.parse_args()
 
