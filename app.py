@@ -157,10 +157,11 @@ def list_files(img_dir):
     dir_path = Path(img_dir)
     saved_files = sorted(list(dir_path.glob("*.csv")))
     if saved_files:
-        print(f'Updated local files within {dir_path}:')
+        print(f'\nUpdated local files within {dir_path}:')
         for sfile in saved_files:
             file_size = sfile.stat().st_size
             print(f"{sfile}: {file_size} bytes")
+            print("\n")
 
 def initialize_local_file(site, outdir, publish_names):
     """Function to generate the filename and header info for local file"""
@@ -243,6 +244,7 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
         
         ## -- Write to Local File if Specified ----
         if 'local_file' in kwargs and kwargs['local_file']:
+            print(f"Writing sample to local file {kwargs['local_file'].name}")
             # Write the sample to the local CSV file
             with open(kwargs['local_file'].name, mode='a', newline='', encoding="utf-8") as csvfile:
                 csv_writer = csv.writer(csvfile)
