@@ -252,7 +252,7 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
                 csvfile.flush()
 
         ## -- Publish Parsed Telegram to Beehive ---
-        if kwargs['beehive_interval'] > 0:
+        if args.beehive_interval > 0:
             # publish each value in sample
             for name, key in kwargs['names'].items():
                 try:
