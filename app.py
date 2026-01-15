@@ -10,6 +10,7 @@ import time
 import serial
 import argparse
 import parse
+import csv
 from pathlib import Path
 import threading
 
@@ -156,13 +157,13 @@ def list_files(img_dir):
     dir_path = Path(img_dir)
     saved_files = sorted(list(dir_path.glob("*.csv")))
     if saved_files:
-        print('updated path/files: ')
+        print(f'Updated local files within {dir_path}:')
         for sfile in saved_files:
             file_size = sfile.stat().st_size
             print(f"{sfile}: {file_size} bytes")
 
-def define_filename(site, outdir):
-    """Function to generate the filename based on the current time"""
+def initialize_local_file(site, outdir, publish_names):
+    """Function to generate the filename and header info for local file"""
     nout = (site +
             '.wxt536.' +
             datetime.now(timezone.utc).strftime("%Y%m%d.%H%M%S") +
@@ -172,7 +173,22 @@ def define_filename(site, outdir):
     # Ensure the parent directory exists
     csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    return csv_path
+    # Initialize the CSV file with headers
+    print(f"Initializing local CSV file at {csv_path}")
+    with open(csv_path, mode='w', newline='', encoding="utf-8") as csvfile:
+        csv_writer = csv.writer(csvfile)
+        # Write the header row
+        header = ['Timestamp'] + [info[1] for info in publish_names.values()]
+        units = ['UTC seconds'] + [info[2] for info in publish_names.values()]
+        waggle_vars = ['Timestamp'] + [info[0] for info in publish_names.values()]
+        short_names = ['time'] + [info for info in publish_names.keys()]
+        
+        csv_writer.writerow(header)
+        csv_writer.writerow(units)
+        csv_writer.writerow(waggle_vars)
+        csv_writer.writerow(short_names)
+
+    return csv_writer
 
 def publish_file(file_path):
     """Utilizing threading, publish file to Beehive"""
@@ -187,37 +203,35 @@ def publish_file(file_path):
     thread.join()
 
 
-def start_publishing(plugin, dev, query, **kwargs):
+def start_publishing(args, plugin, ser, publish_names, **kwargs):
     """
-    start_publishing initializes the Visala WXT530
-    Begins sampling and publishing data
+    Sends query command to the WXT536 instrument, parses the returned
+    telegram, and publishes to Beehive via Waggle Plugin.
 
-    Functions
-    ---------
-
-
-    Modules
-    -------
-    plugin
-    logging
-    sched
-    parse
+    Additionally, writes the raw data to a local file if specified.
     """
+
     # Define the timestamp
     timestamp = get_timestamp()
+
+    ## -- Query the WXT and Parse the Returned Telegram ----
+    
     # Note: WXT interface commands located within manual
     # Note: query command sent to the instrument needs to be byte
-    dev.write(bytearray(query + '\r\n', 'utf-8'))
-    line = dev.readline()
+    ser.write(bytearray(args.query + '\r\n', 'utf-8'))
+    line = ser.readline()
     # Remove all leading/trailing checksum characters
     newstring = b''.join(bytes([byte]) for byte in line if byte  > 14)
     # check for debug; output direct from the instrument
-    if kwargs['debug'] == True:
+    if args.debug == True:
+        print('Raw Output from WXT536:')
         print(datetime.fromtimestamp(timestamp / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f'), line)
         print(newstring)
     # Check for valid command
     sample = parse_values(newstring)
-    print(f"Parsed Sample: {sample}")
+    if args.debug == True:
+        print(f"Parsed Sample: {sample}")
+
     # If valid parsed values, send to publishing
     if sample:
         # Define a list to hold the additional meta data for the heater
@@ -225,19 +239,31 @@ def start_publishing(plugin, dev, query, **kwargs):
                        "Heating Voltage Supplied and Above Heating Temperature Threshold",
                        "Heating Voltage Supplied and is between High and Middle Control Temperature Threshold",
                        "Heating Voltage Supplied and is between Low and Middle Control Temperature Threshold",
-                       "Heating Voltage Supplied and is Below Low Control Temperature Threshold"] 
+                       "Heating Voltage Supplied and is Below Low Control Temperature Threshold"]
+        
+        ## -- Write to Local File if Specified ----
+        if 'local_file' in kwargs and kwargs['local_file']:
+            # Write the sample to the local CSV file
+            with open(kwargs['local_file'].name, mode='a', newline='', encoding="utf-8") as csvfile:
+                csv_writer = csv.writer(csvfile)
+                ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
+                csv_writer.writerow([ts, *out_values])
+                csvfile.flush()
+
+        ## -- Publish Parsed Telegram to Beehive ---
         if kwargs['beehive_interval'] > 0:
             # publish each value in sample
             for name, key in kwargs['names'].items():
                 try:
-                    value = sample[key]
+                    value = sample[name]
                 except KeyError:
                     continue
                 # Update the log
                 if key == 'Jo':
-                    plugin.publish(name,
+                    plugin.publish(key[0],
                                    value=value,
-                                   meta={"units" : kwargs['units'][name],
+                                   meta={"units" : key[2],
                                          "sensor" : "vaisala-wxt536",
                                          "missing" : "-9999.9",
                                          "status" : heater_info[value]
@@ -246,9 +272,9 @@ def start_publishing(plugin, dev, query, **kwargs):
                                     timestamp=timestamp
                                     )
                 else:
-                    plugin.publish(name,
+                    plugin.publish(key[0],
                                    value=value,
-                                   meta={"units" : kwargs['units'][name],
+                                   meta={"units" : key[2],
                                          "sensor" : "vaisala-wxt536",
                                          "missing" : "-9999.9",
                                     },
@@ -257,45 +283,26 @@ def start_publishing(plugin, dev, query, **kwargs):
                                     )
 
 def main(args):
-    publish_names = {"wxt.wind.direction" : "Dm",
-                     "wxt.wind.speed" : "Sm",
-                     "wxt.env.temp" : "Ta",
-                     "wxt.env.humidity" : "Ua",
-                     "wxt.env.pressure" : "Pa",
-                     "wxt.rain.accumulation" : "Rc",
-                     "wxt.rain.duration" : "Rd",
-                     "wxt.rain.intensity" : "Ri",
-                     "wxt.rain.peak" : "Rp",
-                     "wxt.hail.accumulation" : "Hc",
-                     "wxt.hail.duration" : "Hd",
-                     "wxt.hail.intensity" : "Hi",
-                     "wxt.hail.peak" : "Hp",
-                     "wxt.heater.temp" : "Th",
-                     "wxt.heater.volt" : "Vh",
-                     "wxt.voltage.supply" : "Vs",
-                     "wxt.voltage.reference" : "Vr",
-                     "wxt.heater.status" : "Jo"
+    """Main function for WXT536 interface and publishing"""
+    publish_names = {"Dm" : ["wxt.wind.direction", "Mean Wind Direction", "degrees"],
+                     "Sm" : ["wxt.wind.speed", "Mean Wind Speed", "m/s"],
+                     "Ta" : ["wxt.env.temp", "Air Temperature", "C"],
+                     "Ua" : ["wxt.env.humidity", "Relative Humidity", "%"],
+                     "Pa" : ["wxt.env.pressure", "Atmospheric Static Air Pressure", "hPa"],
+                     "Rc" : ["wxt.rain.accumulation", "Rain Accumulation", "mm"],
+                     "Rd" : ["wxt.rain.duration", "Rain Duration", "s"],
+                     "Ri" : ["wxt.rain.intensity", "Rain Intensity", "mm/h"],
+                     "Rp" : ["wxt.rain.peak", "Rain Peak Intensity", "mm/h"],
+                     "Hc" : ["wxt.hail.accumulation", "Hail Accumulation", "mm"],
+                     "Hd" : ["wxt.hail.duration", "Hail Duration", "s"],
+                     "Hi" : ["wxt.hail.intensity", "Hail Intensity", "mm/h"],
+                     "Hp" : ["wxt.hail.peak", "Hail Peak Intensity", "mm/h"],
+                     "Th" : ["wxt.heater.temp", "Heater Temperature", "C"],
+                     "Vh" : ["wxt.heater.volt", "Heater Voltage", "V"],
+                     "Vs" : ["wxt.voltage.supply", "Supply Voltage", "V"],
+                     "Vr" : ["wxt.voltage.reference", "Reference Voltage", "V"],
+                     "Jo" : ["wxt.heater.status", "Heater Status", "Unitless"]
                     }
-
-    units = {"wxt.wind.direction" : "degrees",
-             "wxt.wind.speed" : "meters per second",
-             "wxt.env.temp" : "degree Celsius",
-             "wxt.env.humidity" : "percent",
-             "wxt.env.pressure" : "hectoPascal",
-             "wxt.rain.accumulation" : "milimeters",
-             "wxt.rain.duration" : "seconds",
-             "wxt.rain.intensity" : "millimeters per hour",
-             "wxt.rain.peak" : "millimeters per hour",
-             "wxt.hail.accumulation" : "hits per square centimeter",
-             "wxt.hail.duration" : "seconds",
-             "wxt.hail.intensity" : "hits per square centimeter per hour",
-             "wxt.hail.peak" : "hits per square centimeter per hour",
-             "wxt.voltage.supply" : "volts",
-             "wxt.heater.temp" : "degree Celsius",
-             "wxt.heater.volt" : "volts",
-             "wxt.heater.status" : "unitless",
-             "wxt.voltage.reference" : "volts"
-             }
 
     with Plugin() as plugin, serial.Serial(args.device,
 					                       args.baud_rate,
@@ -305,7 +312,36 @@ def main(args):
 					                       timeout=1) as ser:
         try:
             print(f"Serial connection to {args.device} is open")
+            last_timestamp = time.gmtime()
+
+            # ---- Local File Initialization ----
+            # Check to see if data are written to local file for upload
+            if args.file_interal > 0:
+                print(f"Writing data to local file every {args.file_interval} seconds")
+                # Define the filename
+                nfile_writer = initialize_local_file(args.site, args.outdir, publish_names)
+
+            # --- Main WXT Interface Loop ----
             while True:
+
+                # --- Check on Local File Creation Interval ----
+                if args.file_interal > 0:
+                    current_timestamp = time.gmtime()
+                    if (current_timestamp.tm_min % args.file_interval == 0
+                            and current_timestamp.tm_min != last_timestamp.tm_min):
+                        # Close the current file and create a new one
+                        if nfile_writer:
+                            print(f"Closing {nfile_writer.name}")
+                            nfile_writer.close()
+                        # Intialize a new local file
+                        nfile_writer = initialize_local_file(args.site, args.outdir, publish_names)
+                        last_timestamp = current_timestamp
+                    # if desired, check on current files and file sizes
+                    if args.verbose:
+                        # check on the files
+                        list_files(args.outdir)
+
+                ## --- Verify Serial Connection ----
                 # Check the serial connection. If not defined, re-establish.
                 if ser is None:
                     ser = serial.Serial(args.device,
@@ -315,21 +351,30 @@ def main(args):
 					                    bytesize=serial.EIGHTBITS,
 					                    timeout=1)
                     print(f"Reconnecting Serial Connection with {args.device}")
+                
+                ## --- Begin Data Publishing ----
                 # Begin publishing data - parse telegram and upload to beehive
-                start_publishing(plugin,
-                                 ser,
-                                 args.query,
-                                 beehive_interval=args.beehive_interval,
-                                 names=publish_names,
-                                 units=units,
-                                 debug=args.debug
-                )
-                # Wait for the next query interval
+                if args.file_interal > 0:
+                    start_publishing(args,
+                                     plugin,
+                                     ser,
+                                     publish_names,
+                                     local_file=nfile_writer,
+                    )
+                else:
+                    start_publishing(args,
+                                     plugin,
+                                     ser,
+                                     publish_names
+                    )
+
+                ## -- Query Interval Wait ---
                 if isinstance(args.query_interval, (int, float)) and args.query_interval > 0:
                     time.sleep(args.query_interval)
                 else:
                     print("Invalid query interval, defaulting to 1 second")
                     time.sleep(1)
+
         except KeyboardInterrupt:
             print(f"Program interrupted, closing serial port {args.device}")
         finally:
@@ -389,6 +434,13 @@ if __name__ == '__main__':
                         help="[float|Default 1.0] Interval to publish data to" +
                              " beehive (negative values disable beehive publishing)." +
                              " Values > query-interval will result in averaged data."
+                        )
+    parser.add_argument("--file-publish-interval",
+                        type=int,
+                        dest="file_interval",
+                        default=3600,
+                        help="[int|Default 3600sec] Interval to output raw data files" +
+                                " locally for upload to beehive (negative values disable file output)."
                         )
     parser.add_argument("--outdir",
                         type=str,
