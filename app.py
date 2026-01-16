@@ -244,8 +244,6 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
         
         ## -- Write to Local File if Specified ----
         if 'local_file' in kwargs and kwargs['local_file']:
-            print("hey")
-            print(kwargs['local_file'])
             with open(kwargs['local_file'], mode='a', newline='', encoding="utf-8") as csvfile:
                 csv_writer = csv.writer(csvfile)
                 ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
