@@ -161,7 +161,7 @@ def list_files(img_dir):
         for sfile in saved_files:
             file_size = sfile.stat().st_size
             print(f"{sfile}: {file_size} bytes")
-            print("\n")
+
 
 def initialize_local_file(site, outdir, publish_names):
     """Function to generate the filename and header info for local file"""
@@ -183,13 +183,13 @@ def initialize_local_file(site, outdir, publish_names):
         units = ['UTC seconds'] + [info[2] for info in publish_names.values()]
         waggle_vars = ['Timestamp'] + [info[0] for info in publish_names.values()]
         short_names = ['time'] + [info for info in publish_names.keys()]
-        
+
         csv_writer.writerow(header)
         csv_writer.writerow(units)
         csv_writer.writerow(waggle_vars)
         csv_writer.writerow(short_names)
 
-    return csv_writer
+    return csv_path
 
 def publish_file(file_path):
     """Utilizing threading, publish file to Beehive"""
@@ -244,10 +244,14 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
         
         ## -- Write to Local File if Specified ----
         if 'local_file' in kwargs and kwargs['local_file']:
-            ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
-            out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
-            kwargs['local_file'].writerow([ts, *out_values])
-            kwargs['local_file'].flush()
+            print("hey")
+            print(kwargs['local_file'])
+            with open(kwargs['local_file'], mode='a', newline='', encoding="utf-8") as csvfile:
+                csv_writer = csv.writer(csvfile)
+                ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
+                csv_writer.writerow([ts, *out_values])
+                csv_writer.flush()
 
         ## -- Publish Parsed Telegram to Beehive ---
         if args.beehive_interval > 0:
@@ -323,6 +327,7 @@ def main(args):
             if args.debug == True:
                 # check on the files
                 list_files(args.outdir)
+                print("\n")
 
             # --- Main WXT Interface Loop ----
             while True:
@@ -350,7 +355,7 @@ def main(args):
 					                    bytesize=serial.EIGHTBITS,
 					                    timeout=1)
                     print(f"Reconnecting Serial Connection with {args.device}")
-                
+
                 ## --- Begin Data Publishing ----
                 # Begin publishing data - parse telegram and upload to beehive
                 if args.file_interval > 0:
