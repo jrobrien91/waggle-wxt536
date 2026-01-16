@@ -251,7 +251,7 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
                 ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
                 out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
                 csv_writer.writerow([ts, *out_values])
-                csv_writer.flush()
+                csvfile.flush()
 
         ## -- Publish Parsed Telegram to Beehive ---
         if args.beehive_interval > 0:
