@@ -340,7 +340,7 @@ def main(args):
                         # Close the current file and create a new one
                         if nfile_writer:
                             print(f"Closing {nfile_writer.name}")
-                            nfile_writer.close()
+                            publish_file(nfile_writer.name)
                         # Intialize a new local file
                         nfile_writer = initialize_local_file(args.site, args.outdir, publish_names)
                         last_timestamp = current_timestamp
