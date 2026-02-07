@@ -223,9 +223,11 @@ def publish_avg(arg, file_path, publish_names):
     Calculate a user define average from the local data files
     and publish to Beehive. 
     """
+    print(file_path)
     df = pd.read_csv(file_path, skiprows=3, na_values=-9999)
     df = df.set_index(['time'])
     ds = xr.Dataset.from_dataframe(df)
+    print(ds)
     ds = ds.assign_coords(time=pd.to_datetime(ds["time"].values))
 
     # define temporal frequency for resampling
