@@ -223,16 +223,24 @@ def publish_avg(arg, file_path, publish_names):
     Calculate a user define average from the local data files
     and publish to Beehive. 
     """
-    print(file_path)
+    # Define the timestamp
+    timestamp = get_timestamp()
+
+    # Define a list to hold the additional meta data for the heater
+    heater_info = ["Heating Voltage Not Supplied",
+                   "Heating Voltage Supplied and Above Heating Temperature Threshold",
+                   "Heating Voltage Supplied and is between High and Middle Control Temperature Threshold",
+                   "Heating Voltage Supplied and is between Low and Middle Control Temperature Threshold",
+                   "Heating Voltage Supplied and is Below Low Control Temperature Threshold"]
+
     df = pd.read_csv(file_path, skiprows=3, na_values=-9999)
     df = df.set_index(['time'])
     ds = xr.Dataset.from_dataframe(df)
-    print(ds)
+
     ds = ds.assign_coords(time=pd.to_datetime(ds["time"].values))
 
     # define temporal frequency for resampling
     nfreq = secs_to_xr_freq(arg.beehive_interval)
-    print(nfreq)
 
     # Temporal mean for everything except rainfall accumulation
     ds_mean = ds.drop_vars(["Rc"]).resample(time=nfreq).mean()
@@ -282,9 +290,6 @@ def query(args, ser, publish_names, **kwargs):
     Additionally, writes the raw data to a local file if specified.
     """
 
-    # Define the timestamp
-    timestamp = get_timestamp()
-
     ## -- Query the WXT and Parse the Returned Telegram ----
 
     # Note: WXT interface commands located within manual
@@ -305,13 +310,6 @@ def query(args, ser, publish_names, **kwargs):
 
     # If valid parsed values, send to publishing
     if sample:
-        # Define a list to hold the additional meta data for the heater
-        heater_info = ["Heating Voltage Not Supplied",
-                       "Heating Voltage Supplied and Above Heating Temperature Threshold",
-                       "Heating Voltage Supplied and is between High and Middle Control Temperature Threshold",
-                       "Heating Voltage Supplied and is between Low and Middle Control Temperature Threshold",
-                       "Heating Voltage Supplied and is Below Low Control Temperature Threshold"]
-
         ## -- Write to Local File if Specified ----
         if 'local_file' in kwargs and kwargs['local_file']:
             with open(kwargs['local_file'], mode='a', newline='', encoding="utf-8") as csvfile:
