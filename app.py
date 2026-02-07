@@ -6,6 +6,7 @@ To display currently available serial ports:
 python -m serial.tools.list_ports
 """
 
+from random import sample
 import time
 import serial
 import argparse
@@ -13,6 +14,8 @@ import parse
 import csv
 from pathlib import Path
 import threading
+import pandas as pd
+import xarray as xr
 
 from datetime import datetime, timezone
 from waggle.plugin import Plugin, get_timestamp
@@ -162,6 +165,18 @@ def list_files(img_dir):
             file_size = sfile.stat().st_size
             print(f"{sfile}: {file_size} bytes")
 
+def secs_to_xr_freq(seconds):
+    """cleanly convert seconds to a string frequency for xarray resampling"""
+    seconds = int(seconds)
+    if seconds <= 0:
+        raise ValueError("seconds must be > 0")
+
+    # prefer larger, cleaner units when possible
+    if seconds % 3600 == 0:
+        return f"{seconds // 3600}H"
+    if seconds % 60 == 0:
+        return f"{seconds // 60}min"
+    return f"{seconds}s"
 
 def initialize_local_file(site, outdir, publish_names):
     """Function to generate the filename and header info for local file"""
@@ -203,8 +218,59 @@ def publish_file(file_path):
     thread.start()
     thread.join()
 
+def publish_avg(arg, file_path, publish_names):
+    """
+    Calculate a user define average from the local data files
+    and publish to Beehive. 
+    """
+    df = pd.read_csv(file_path, skiprows=3, na_values=-9999)
+    df = df.set_index(['time'])
+    ds = xr.Dataset.from_dataframe(df)
+    ds = ds.assign_coords(time=pd.to_datetime(ds["time"].values))
 
-def start_publishing(args, plugin, ser, publish_names, **kwargs):
+    # define temporal frequency for resampling
+    nfreq = secs_to_xr_freq(arg.beehive_interval)
+
+    # Temporal mean for everything except rainfall accumulation
+    ds_mean = ds.drop_vars(["Rc"]).resample(time=nfreq).mean()
+
+    # put it back into one Dataset
+    ds_mean['Rc'] = ds.Rc.data[-1]
+
+    ## -- Publish Parsed and Averaged Telegram to Beehive ---
+    # publish each value in sample
+    for name, key in publish_names.items():
+        try:
+            value = ds_mean[name].data[-1]
+        except KeyError:
+            continue
+        # Update the log
+        if key == 'Jo':
+            plugin.publish(key[0],
+                           value=value,
+                           meta={"units" : key[2],
+                                 "sensor" : "vaisala-wxt536",
+                                 "missing" : "-9999.9",
+                                 "status" : heater_info[value],
+                                 "avg_frequency" : nfreq
+                           },
+                           scope="beehive",
+                           timestamp=timestamp
+            )
+        else:
+            plugin.publish(key[0],
+                           value=value,
+                           meta={"units" : key[2],
+                                 "sensor" : "vaisala-wxt536",
+                                 "missing" : "-9999.9",
+                                 "avg_frequency" : nfreq},
+                           scope="beehive",
+                           timestamp=timestamp
+            )
+    # cleanup
+    del df, ds, ds_mean
+
+def query(args, plugin, ser, publish_names, **kwargs):
     """
     Sends query command to the WXT536 instrument, parses the returned
     telegram, and publishes to Beehive via Waggle Plugin.
@@ -216,7 +282,7 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
     timestamp = get_timestamp()
 
     ## -- Query the WXT and Parse the Returned Telegram ----
-    
+
     # Note: WXT interface commands located within manual
     # Note: query command sent to the instrument needs to be byte
     ser.write(bytearray(args.query + '\r\n', 'utf-8'))
@@ -241,7 +307,7 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
                        "Heating Voltage Supplied and is between High and Middle Control Temperature Threshold",
                        "Heating Voltage Supplied and is between Low and Middle Control Temperature Threshold",
                        "Heating Voltage Supplied and is Below Low Control Temperature Threshold"]
-        
+
         ## -- Write to Local File if Specified ----
         if 'local_file' in kwargs and kwargs['local_file']:
             with open(kwargs['local_file'], mode='a', newline='', encoding="utf-8") as csvfile:
@@ -250,37 +316,6 @@ def start_publishing(args, plugin, ser, publish_names, **kwargs):
                 out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
                 csv_writer.writerow([ts, *out_values])
                 csvfile.flush()
-
-        ## -- Publish Parsed Telegram to Beehive ---
-        if args.beehive_interval > 0:
-            # publish each value in sample
-            for name, key in publish_names.items():
-                try:
-                    value = sample[name]
-                except KeyError:
-                    continue
-                # Update the log
-                if key == 'Jo':
-                    plugin.publish(key[0],
-                                   value=value,
-                                   meta={"units" : key[2],
-                                         "sensor" : "vaisala-wxt536",
-                                         "missing" : "-9999.9",
-                                         "status" : heater_info[value]
-                                    },
-                                    scope="beehive",
-                                    timestamp=timestamp
-                                    )
-                else:
-                    plugin.publish(key[0],
-                                   value=value,
-                                   meta={"units" : key[2],
-                                         "sensor" : "vaisala-wxt536",
-                                         "missing" : "-9999.9",
-                                    },
-                                    scope="beehive",
-                                    timestamp=timestamp
-                                    )
 
 def main(args):
     """Main function for WXT536 interface and publishing"""
@@ -335,6 +370,9 @@ def main(args):
                     current_timestamp = time.gmtime()
                     if (current_timestamp.tm_min % args.file_interval == 0
                             and current_timestamp.tm_min != last_timestamp.tm_min):
+                        ## -- Publish Parsed Telegram to Beehive ---
+                        if args.beehive_interval > 0:
+                            publish_avg(args, nfile_writer.name, publish_names)
                         # Close the current file and create a new one
                         if nfile_writer:
                             print(f"Closing {nfile_writer.name}")
@@ -357,17 +395,17 @@ def main(args):
                 ## --- Begin Data Publishing ----
                 # Begin publishing data - parse telegram and upload to beehive
                 if args.file_interval > 0:
-                    start_publishing(args,
-                                     plugin,
-                                     ser,
-                                     publish_names,
-                                     local_file=nfile_writer,
+                    query(args,
+                          plugin,
+                          ser,
+                          publish_names,
+                          local_file=nfile_writer,
                     )
                 else:
-                    start_publishing(args,
-                                     plugin,
-                                     ser,
-                                     publish_names
+                    query(args,
+                          plugin,
+                          ser,
+                          publish_names
                     )
 
                 ## -- Query Interval Wait ---
@@ -430,18 +468,18 @@ if __name__ == '__main__':
                         help="[int|Default 1sec] WXT Query Frequency in seconds "
                        )
     parser.add_argument("--beehive-publish-interval",
-                        default=900.0,
+                        default=900,
                         dest='beehive_interval',
-                        type=float,
-                        help="[float|Default 1.0] Interval to publish data to" +
+                        type=int,
+                        help="[float|Default 900 sec] Interval to publish data to" +
                              " beehive (negative values disable beehive publishing)." +
                              " Values > query-interval will result in averaged data."
                         )
     parser.add_argument("--file-publish-interval",
                         type=int,
                         dest="file_interval",
-                        default=3600,
-                        help="[int|Default 3600sec] Interval to output raw data files" +
+                        default=900,
+                        help="[int|Default 900 sec] Interval to output raw data files" +
                                 " locally for upload to beehive (negative values disable file output)."
                         )
     parser.add_argument("--outdir",
