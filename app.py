@@ -167,7 +167,7 @@ def list_files(img_dir):
 
 def secs_to_xr_freq(seconds):
     """cleanly convert seconds to a string frequency for xarray resampling"""
-    seconds = int(seconds)
+    seconds = int(seconds) * 60
     if seconds <= 0:
         raise ValueError("seconds must be > 0")
 
@@ -464,10 +464,10 @@ if __name__ == '__main__':
                         help="[int|Default 1sec] WXT Query Frequency in seconds "
                        )
     parser.add_argument("--beehive-publish-interval",
-                        default=900,
+                        default=15,
                         dest='beehive_interval',
                         type=int,
-                        help="[float|Default 900 sec] Interval to publish data to" +
+                        help="[float|Default 15 min] Interval to publish data to" +
                              " beehive (negative values disable beehive publishing)." +
                              " Values > query-interval will result in averaged data."
                         )
