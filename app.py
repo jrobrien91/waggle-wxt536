@@ -401,11 +401,18 @@ def main(args):
                     print(f"Reconnecting Serial Connection with {args.device}")
 
                 ## --- Begin Data Publishing ----
-                # Begin - parse telegram 
-                query(args,
-                      ser,
-                      publish_names
-                )
+                # Begin - parse telegram
+                if args.beehive_interval > 0:
+                    query(args,
+                          ser,
+                          publish_names,
+                          local_file=nfile_writer,
+                    )
+                else:
+                    query(args,
+                          ser,
+                          publish_names
+                    )
 
                 ## -- Query Interval Wait ---
                 if isinstance(args.query_interval, (int, float)) and args.query_interval > 0:
