@@ -371,6 +371,8 @@ def main(args):
                 if args.beehive_interval > 0:
                     current_timestamp = time.gmtime()
                     print(f"Current Timestamp: {current_timestamp}")
+                    print("first test: ", current_timestamp.tm_min % args.beehive_interval == 0)
+                    print("second test: ", current_timestamp.tm_min != last_timestamp.tm_min)
                     if (current_timestamp.tm_min % args.beehive_interval == 0
                             and current_timestamp.tm_min != last_timestamp.tm_min):
                         ## -- Publish Parsed Telegram to Beehive ---
