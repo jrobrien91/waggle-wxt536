@@ -230,6 +230,7 @@ def publish_avg(arg, file_path, publish_names):
 
     # define temporal frequency for resampling
     nfreq = secs_to_xr_freq(arg.beehive_interval)
+    print(nfreq)
 
     # Temporal mean for everything except rainfall accumulation
     ds_mean = ds.drop_vars(["Rc"]).resample(time=nfreq).mean()
