@@ -289,6 +289,8 @@ def query(args, ser, publish_names, **kwargs):
 
     Additionally, writes the raw data to a local file if specified.
     """
+    # Define the timestamp
+    timestamp = get_timestamp()
 
     ## -- Query the WXT and Parse the Returned Telegram ----
 
