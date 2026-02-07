@@ -352,7 +352,6 @@ def main(args):
         try:
             print(f"Serial connection to {args.device} is open")
             last_timestamp = time.gmtime()
-            print(last_timestamp)
 
             # ---- Local File Initialization ----
             # Check to see if data are written to local file for upload
@@ -373,9 +372,7 @@ def main(args):
                 # --- Check on Local File Creation Interval ----
                 if args.beehive_interval > 0:
                     current_timestamp = time.gmtime()
-                    print(f"Current Timestamp: {current_timestamp}")
-                    print("first test: ", current_timestamp.tm_min % args.beehive_interval == 0)
-                    print("second test: ", current_timestamp.tm_min != last_timestamp.tm_min)
+
                     if (current_timestamp.tm_min % args.beehive_interval == 0
                             and current_timestamp.tm_min != last_timestamp.tm_min):
                         ## -- Publish Parsed Telegram to Beehive ---
