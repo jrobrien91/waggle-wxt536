@@ -246,7 +246,7 @@ def publish_avg(arg, file_path, publish_names):
     ds_mean = ds.drop_vars(["Rc"]).resample(time=nfreq).mean()
 
     # put it back into one Dataset
-    ds_mean['Rc'] = ds.Rc.data[-1]
+    ds_mean['Rc'] = [ds.Rc.data[-1]]
 
     ## -- Publish Parsed and Averaged Telegram to Beehive ---
     # publish each value in sample
