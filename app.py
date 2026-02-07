@@ -239,38 +239,39 @@ def publish_avg(arg, file_path, publish_names):
 
     ## -- Publish Parsed and Averaged Telegram to Beehive ---
     # publish each value in sample
-    for name, key in publish_names.items():
-        try:
-            value = ds_mean[name].data[-1]
-        except KeyError:
-            continue
-        # Update the log
-        if key == 'Jo':
-            plugin.publish(key[0],
-                           value=value,
-                           meta={"units" : key[2],
-                                 "sensor" : "vaisala-wxt536",
-                                 "missing" : "-9999.9",
-                                 "status" : heater_info[value],
-                                 "avg_frequency" : nfreq
-                           },
-                           scope="beehive",
-                           timestamp=timestamp
-            )
-        else:
-            plugin.publish(key[0],
-                           value=value,
-                           meta={"units" : key[2],
-                                 "sensor" : "vaisala-wxt536",
-                                 "missing" : "-9999.9",
-                                 "avg_frequency" : nfreq},
-                           scope="beehive",
-                           timestamp=timestamp
-            )
+    with Plugin() as plugin:
+        for name, key in publish_names.items():
+            try:
+                value = ds_mean[name].data[-1]
+            except KeyError:
+                continue
+            # Update the log
+            if key == 'Jo':
+                plugin.publish(key[0],
+                               value=value,
+                               meta={"units" : key[2],
+                                     "sensor" : "vaisala-wxt536",
+                                     "missing" : "-9999.9",
+                                     "status" : heater_info[value],
+                                     "avg_frequency" : nfreq
+                                },
+                                scope="beehive",
+                                timestamp=timestamp
+                )
+            else:
+                plugin.publish(key[0],
+                               value=value,
+                               meta={"units" : key[2],
+                                     "sensor" : "vaisala-wxt536",
+                                     "missing" : "-9999.9",
+                                     "avg_frequency" : nfreq},
+                               scope="beehive",
+                               timestamp=timestamp
+                )
     # cleanup
     del df, ds, ds_mean
 
-def query(args, plugin, ser, publish_names, **kwargs):
+def query(args, ser, publish_names, **kwargs):
     """
     Sends query command to the WXT536 instrument, parses the returned
     telegram, and publishes to Beehive via Waggle Plugin.
@@ -339,12 +340,12 @@ def main(args):
                      "Jo" : ["wxt.heater.status", "Heater Status", "Unitless"]
                     }
 
-    with Plugin() as plugin, serial.Serial(args.device,
-					                       args.baud_rate,
-					                       parity=serial.PARITY_NONE,
-					                       stopbits=serial.STOPBITS_ONE,
-					                       bytesize=serial.EIGHTBITS,
-					                       timeout=1) as ser:
+    with serial.Serial(args.device,
+					   args.baud_rate,
+					   parity=serial.PARITY_NONE,
+					   stopbits=serial.STOPBITS_ONE,
+					   bytesize=serial.EIGHTBITS,
+					   timeout=1) as ser:
         try:
             print(f"Serial connection to {args.device} is open")
             last_timestamp = time.gmtime()
@@ -396,14 +397,12 @@ def main(args):
                 # Begin publishing data - parse telegram and upload to beehive
                 if args.file_interval > 0:
                     query(args,
-                          plugin,
                           ser,
                           publish_names,
                           local_file=nfile_writer,
                     )
                 else:
                     query(args,
-                          plugin,
                           ser,
                           publish_names
                     )
