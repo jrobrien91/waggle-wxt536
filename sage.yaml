@@ -1,6 +1,6 @@
 name: "waggle-wxt536"
 description: "Captures & uploads meteorological conditions from a Viasala WXT530 data stream."
-version: "0.24.11.14"
+version: "1.00"
 authors: "Joe O'Brien <obrienj@anl.gov>"
 collaborators: "Bhupendra Raut, Evan Keeler, Sujan Pal, and Yongho Kim"
 funding: "Community Research on Climate and Urban Science (CROCUS)"

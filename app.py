@@ -234,7 +234,8 @@ def publish_avg(arg, file_path, publish_names):
                    "Heating Voltage Supplied and is Below Low Control Temperature Threshold"]
 
     df = pd.read_csv(file_path, skiprows=3, na_values=-9999)
-    df = df.set_index(['time'])
+    df["time"] = pd.to_datetime(df["time"], utc=True, errors="coerce").dt.tz_convert(None)
+    df = df.set_index("time").sort_index()
     ds = xr.Dataset.from_dataframe(df)
 
     ds = ds.assign_coords(time=pd.to_datetime(ds["time"].values))
