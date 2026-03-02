@@ -254,7 +254,7 @@ def publish_avg(arg, file_path, publish_names):
     with Plugin() as plugin:
         for name, key in publish_names.items():
             try:
-                value = ds_mean[name].data[-1]
+                value = ds_mean[name].round(decimals=3).data[-1]
             except KeyError:
                 continue
             # Update the log
