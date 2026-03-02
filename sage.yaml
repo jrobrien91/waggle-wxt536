@@ -4,7 +4,7 @@ version: "1.00"
 authors: "Joe O'Brien <obrienj@anl.gov>"
 collaborators: "Bhupendra Raut, Evan Keeler, Sujan Pal, and Yongho Kim"
 funding: "Community Research on Climate and Urban Science (CROCUS)"
-license: ""
+license: "Apache License 2.0"
 keywords: "meteorological"
 homepage: "https://github.com/jrobrien91/waggle-wxt536/blob/main/README.md"
 source:
