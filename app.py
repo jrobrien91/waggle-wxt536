@@ -283,6 +283,43 @@ def publish_avg(arg, file_path, publish_names):
     # cleanup
     del df, ds, ds_mean
 
+def autopoll(args, ser, publish_names, **kwargs):
+    """
+    Continuously read from the serial port without sending a query command,
+    parse the command, and publish to Beehive via Waggle Plugin.
+    
+    Automatic polling mode is a WXT536 feature and needs to be set within
+    the instrument configuration files. 
+
+    Additionally, writes the raw data to a local file if specified.
+    """
+    # Define the timestamp
+    timestamp = get_timestamp()
+    
+    # Read data from the serial port
+    line = ser.readline()
+    # Remove all leading/trailing checksum characters
+    newstring = b''.join(bytes([byte]) for byte in line if byte  > 14)
+    # Check for debug; output direct from the instrument
+    if args.debug == True:
+        print('Raw Output from WXT536:')
+        print(datetime.fromtimestamp(get_timestamp() / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f'), line)
+        print(newstring)
+    # Send raw binary string to the parsing function to extract values
+    sample = parse_values(newstring)
+    if args.debug == True:
+        print(f"Parsed Sample: {sample}")
+    # If valid parsed values, send to publishing
+    if sample:
+        ## -- Write to Local File if Specified ----
+        if 'local_file' in kwargs and kwargs['local_file']:
+            with open(kwargs['local_file'], mode='a', newline='', encoding="utf-8") as csvfile:
+                csv_writer = csv.writer(csvfile)
+                ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                out_values = [str(sample.get(val, '-9999')) for val in publish_names.keys()]
+                csv_writer.writerow([ts, *out_values])
+                csvfile.flush()
+
 def query(args, ser, publish_names, **kwargs):
     """
     Sends query command to the WXT536 instrument, parses the returned
@@ -399,18 +436,32 @@ def main(args):
                     print(f"Reconnecting Serial Connection with {args.device}")
 
                 ## --- Begin Data Publishing ----
-                # Begin - parse telegram
                 if args.beehive_interval > 0:
-                    query(args,
-                          ser,
-                          publish_names,
-                          local_file=nfile_writer,
-                    )
+                    ## -- Check which mode the WXT is configured in --
+                    if args.autopoll == True:
+                        autopoll(args,
+                                 ser,
+                                 publish_names,
+                                 local_file=nfile_writer,
+                        )
+                    else:
+                        query(args,
+                              ser,
+                              publish_names,
+                              local_file=nfile_writer,
+                        )
                 else:
-                    query(args,
-                          ser,
-                          publish_names
-                    )
+                    ## -- Check which mode the WXT is configured in --
+                    if args.autopoll == True:
+                        autopoll(args,
+                                 ser,
+                                 publish_names
+                        )
+                    else:
+                        query(args,
+                              ser,
+                              publish_names,
+                        )
 
                 ## -- Query Interval Wait ---
                 if isinstance(args.query_interval, (int, float)) and args.query_interval > 0:
@@ -444,6 +495,14 @@ if __name__ == '__main__':
                         dest='debug',
                         help="[Boolean|Default False] Enable Output from Serial"
                              " Communication to Screen for Debugging"
+                        )
+    parser.add_argument("--autopoll",
+                        type=bool,
+                        default=False,
+                        dest='autopoll',
+                        help="[Boolean|Default False] Flag for WXTs set in Auto-Polling mode." +
+                             " If True, the script will continuously read from the serial port without sending a query command." +
+                             " If False, the script will send the query command at the specified query interval."
                         )
     parser.add_argument("--device",
                         type=str,
